@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stock-analysis"
+version = "1.8.0"
+description = "股票技术分析工具，支持A股、港股、美股、基金"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+authors = [{name = "Stock Analysis Contributors"}]
+
+dependencies = [
+    "pandas>=1.5.0",
+    "numpy>=1.23.0",
+    "requests>=2.28.0",
+]
+
+[project.optional-dependencies]
+full = ["akshare>=1.12.0", "yfinance>=0.2.0", "wcwidth>=0.2.0"]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "pytest-mock>=3.0",
+    "black>=24.0",
+    "isort>=5.13",
+    "ruff>=0.4.0",
+]
+web = ["fastapi>=0.110", "uvicorn[standard]>=0.29", "sqlalchemy>=2.0", "python-multipart>=0.0.6", "pymysql>=1.1", "python-dotenv>=1.0"]
+
+[project.scripts]
+stock-analyze = "stock_analysis.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# ---- 代码质量工具配置 ----
+
+[tool.black]
+line-length = 120
+target-version = ["py38", "py39", "py310"]
+
+[tool.isort]
+profile = "black"
+line_length = 120
+known_first_party = ["stock_analysis", "backend"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py38"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+]
+ignore = [
+    "E501", # line too long (black handles this)
+    "B008", # function call in default argument (common in FastAPI)
+    "SIM108", # ternary instead of if-else-block (sometimes less readable)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["stock_analysis", "backend"]
+
+# ---- 测试配置 ----
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"

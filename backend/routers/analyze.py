@@ -1,0 +1,309 @@
+"""分析接口"""
+
+import asyncio
+import threading
+import uuid
+from typing import Any, Dict, List
+
+import numpy as np
+import pandas as pd
+from fastapi import APIRouter, HTTPException, Query
+
+from stock_analysis.analyzer import StockAnalyzer
+from stock_analysis.fetcher import StockDataFetcher
+
+from ..schemas import (
+    AnalyzeResponse,
+    BatchStatusResponse,
+    BatchSubmitRequest,
+    BatchSubmitResponse,
+    OHLCVItem,
+    SeriesPoint,
+)
+
+router = APIRouter(tags=["analyze"])
+
+analyzer = StockAnalyzer()
+fetcher = StockDataFetcher()
+
+# 批量任务存储
+_batch_tasks: Dict[str, Dict[str, Any]] = {}
+_batch_lock = threading.Lock()
+
+
+def _extract_ohlcv(df: pd.DataFrame) -> List[OHLCVItem]:
+    """从 DataFrame 提取 OHLCV 时序数据"""
+    cols = ["date", "open", "high", "low", "close", "volume"]
+    available_cols = [c for c in cols if c in df.columns]
+    records = df[available_cols].to_dict("records")
+    return [
+        OHLCVItem(
+            date=str(r["date"])[:10],
+            open=round(float(r.get("open", 0)), 4),
+            high=round(float(r.get("high", 0)), 4),
+            low=round(float(r.get("low", 0)), 4),
+            close=round(float(r["close"]), 4),
+            volume=float(r.get("volume", 0)),
+        )
+        for r in records
+    ]
+
+
+def _compute_indicator_series(df: pd.DataFrame) -> Dict[str, List[SeriesPoint]]:
+    """重新计算技术指标并提取完整时序数据（用于图表渲染）"""
+    series = {}
+    dates = [str(d)[:10] for d in df["date"]]
+    n = len(dates)
+
+    # MA
+    for period in [5, 10, 20, 60]:
+        if n >= period:
+            ma = df["close"].rolling(window=period).mean()
+            series[f"MA{period}"] = [
+                SeriesPoint(date=d, value=round(float(v), 4) if pd.notna(v) else None) for d, v in zip(dates, ma)
+            ]
+
+    # MACD
+    if n >= 26:
+        ema_fast = df["close"].ewm(span=12, adjust=False).mean()
+        ema_slow = df["close"].ewm(span=26, adjust=False).mean()
+        dif = ema_fast - ema_slow
+        dea = dif.ewm(span=9, adjust=False).mean()
+        macd_hist = (dif - dea) * 2
+
+        series["DIF"] = [
+            SeriesPoint(date=d, value=round(float(v), 4) if pd.notna(v) else None) for d, v in zip(dates, dif)
+        ]
+        series["DEA"] = [
+            SeriesPoint(date=d, value=round(float(v), 4) if pd.notna(v) else None) for d, v in zip(dates, dea)
+        ]
+        series["MACD"] = [
+            SeriesPoint(date=d, value=round(float(v), 4) if pd.notna(v) else None) for d, v in zip(dates, macd_hist)
+        ]
+
+    # RSI
+    delta = df["close"].diff()
+    for period in [6, 12, 24]:
+        if n >= period:
+            gain = delta.where(delta > 0, 0).rolling(window=period).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+            rs = gain / loss.replace(0, np.nan)
+            rsi = 100 - (100 / (1 + rs))
+            series[f"RSI{period}"] = [
+                SeriesPoint(date=d, value=round(float(v), 2) if pd.notna(v) else None) for d, v in zip(dates, rsi)
+            ]
+
+    # KDJ
+    if n >= 9:
+        low_list = df["low"].rolling(window=9, min_periods=1).min()
+        high_list = df["high"].rolling(window=9, min_periods=1).max()
+        rsv = (df["close"] - low_list) / (high_list - low_list) * 100
+        rsv = rsv.fillna(50)
+        k = rsv.ewm(com=2, adjust=False).mean()
+        d = k.ewm(com=2, adjust=False).mean()
+        j = 3 * k - 2 * d
+
+        series["K"] = [SeriesPoint(date=d, value=round(float(v), 2) if pd.notna(v) else None) for d, v in zip(dates, k)]
+        series["D"] = [SeriesPoint(date=d, value=round(float(v), 2) if pd.notna(v) else None) for d, v in zip(dates, d)]
+        series["J"] = [SeriesPoint(date=d, value=round(float(v), 2) if pd.notna(v) else None) for d, v in zip(dates, j)]
+
+    # BOLL
+    if n >= 20:
+        middle = df["close"].rolling(window=20).mean()
+        std = df["close"].rolling(window=20).std()
+        upper = middle + 2.0 * std
+        lower = middle - 2.0 * std
+
+        series["BOLL_UPPER"] = [
+            SeriesPoint(date=d, value=round(float(v), 4) if pd.notna(v) else None) for d, v in zip(dates, upper)
+        ]
+        series["BOLL_MIDDLE"] = [
+            SeriesPoint(date=d, value=round(float(v), 4) if pd.notna(v) else None) for d, v in zip(dates, middle)
+        ]
+        series["BOLL_LOWER"] = [
+            SeriesPoint(date=d, value=round(float(v), 4) if pd.notna(v) else None) for d, v in zip(dates, lower)
+        ]
+
+    # OBV (On Balance Volume)
+    if "volume" in df.columns and n >= 2:
+        close_change = df["close"].diff()
+        obv = (df["volume"] * close_change.apply(lambda x: 1 if x > 0 else (-1 if x < 0 else 0))).cumsum()
+        series["OBV"] = [
+            SeriesPoint(date=d, value=round(float(v), 2) if pd.notna(v) else None) for d, v in zip(dates, obv)
+        ]
+
+    # CCI (Commodity Channel Index)
+    if n >= 20:
+        typical_price = (df["high"] + df["low"] + df["close"]) / 3
+        tp_sma = typical_price.rolling(window=20).mean()
+        mean_dev = typical_price.rolling(window=20).apply(lambda x: np.abs(x - x.mean()).mean(), raw=True)
+        cci = (typical_price - tp_sma) / (0.015 * mean_dev)
+        series["CCI"] = [
+            SeriesPoint(date=d, value=round(float(v), 2) if pd.notna(v) else None) for d, v in zip(dates, cci)
+        ]
+
+    # WR (Williams %R)
+    if n >= 14:
+        highest_high = df["high"].rolling(window=14, min_periods=1).max()
+        lowest_low = df["low"].rolling(window=14, min_periods=1).min()
+        wr = (highest_high - df["close"]) / (highest_high - lowest_low) * -100
+        series["WR"] = [
+            SeriesPoint(date=d, value=round(float(v), 2) if pd.notna(v) else None) for d, v in zip(dates, wr)
+        ]
+
+    return series
+
+
+@router.get("/analyze/{code}", response_model=AnalyzeResponse)
+async def analyze_stock(
+    code: str,
+    market: str = Query("auto"),
+    asset_type: str = Query("stock"),
+    days: int = Query(60, ge=10, le=500),
+    test: bool = Query(False),
+):
+    """单股技术分析"""
+    if test:
+        result = await asyncio.to_thread(analyzer.analyze_with_mock_data, code, market, asset_type, days)
+    else:
+        result = await asyncio.to_thread(analyzer.analyze, code, market, asset_type, days, return_df=True)
+
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+
+    # 获取 DataFrame 用于提取时序数据
+    ohlcv = []
+    indicator_series = {}
+    if test:
+        # test 模式：用 analyzer 内部同样的方式生成 df
+        from datetime import datetime as _dt
+
+        import numpy as _np
+
+        _np.random.seed(hash(code) % 2**32)
+        base_price = _np.random.uniform(10, 2000)
+        dates = pd.date_range(end=_dt.now(), periods=days, freq="D")
+        trend = _np.random.uniform(-0.002, 0.003)
+        returns = _np.random.normal(trend, 0.02, days)
+        prices = base_price * _np.cumprod(1 + returns)
+        df = pd.DataFrame(
+            {
+                "date": dates,
+                "open": prices * _np.random.uniform(0.98, 1.02, days),
+                "high": prices * _np.random.uniform(1.0, 1.05, days),
+                "low": prices * _np.random.uniform(0.95, 1.0, days),
+                "close": prices,
+                "volume": _np.random.uniform(1e6, 1e8, days).astype(int),
+            }
+        )
+        ohlcv = _extract_ohlcv(df)
+        indicator_series = _compute_indicator_series(df)
+    else:
+        # 正常模式：复用 analyzer 已获取的 DataFrame，不再重复请求
+        df = result.pop("_df", None)
+        if df is not None and not df.empty:
+            ohlcv = _extract_ohlcv(df)
+            indicator_series = _compute_indicator_series(df)
+
+    result["ohlcv"] = [item.model_dump() for item in ohlcv]
+    result["indicator_series"] = {k: [p.model_dump() for p in v] for k, v in indicator_series.items()}
+
+    return result
+
+
+@router.post("/batch", response_model=BatchSubmitResponse)
+async def submit_batch(req: BatchSubmitRequest):
+    """提交批量分析任务"""
+    task_id = str(uuid.uuid4())[:8]
+    with _batch_lock:
+        _batch_tasks[task_id] = {
+            "task_id": task_id,
+            "status": "running",
+            "progress": 0,
+            "total": len(req.codes),
+            "results": [],
+        }
+
+    # 后台线程执行批量分析，5并发 + 全部完成后一次性写入
+    def _run_batch():
+        try:
+            import logging
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
+            _logger = logging.getLogger(__name__)
+            results = []
+            completed = 0
+            failed = 0
+            success_results = []
+
+            def _do_one(code: str) -> dict:
+                try:
+                    if req.test:
+                        result = analyzer.analyze_with_mock_data(code, req.market, req.asset_type)
+                    else:
+                        result = analyzer.analyze(code, req.market, req.asset_type, req.days)
+                    return result
+                except Exception as e:
+                    return {"error": str(e), "stock_info": {"code": code}}
+
+            with ThreadPoolExecutor(max_workers=5) as pool:
+                future_to_code = {pool.submit(_do_one, code): code for code in req.codes}
+                for future in as_completed(future_to_code):
+                    code = future_to_code[future]
+                    try:
+                        result = future.result(timeout=30)
+                        if "error" in result:
+                            failed += 1
+                        else:
+                            success_results.append(result)
+                        results.append(result)
+                    except Exception as e:
+                        failed += 1
+                        results.append({"error": str(e), "stock_info": {"code": code}})
+
+                    completed += 1
+                    with _batch_lock:
+                        _batch_tasks[task_id]["progress"] = completed
+                        _batch_tasks[task_id]["completed"] = completed
+                        _batch_tasks[task_id]["failed"] = failed
+                        _batch_tasks[task_id]["results"] = results
+
+            # 全部完成后一次性批量写入数据库
+            if success_results:
+                try:
+                    from ..database import SessionLocal
+                    from ..scheduler import _save_to_db
+
+                    db = SessionLocal()
+                    try:
+                        for r in success_results:
+                            _save_to_db(db, r)
+                        db.commit()
+                    except Exception as e:
+                        db.rollback()
+                        _logger.error("批量写入数据库失败: %s", e)
+                    finally:
+                        db.close()
+                except Exception as e:
+                    _logger.error("批量写入数据库异常: %s", e)
+
+            with _batch_lock:
+                _batch_tasks[task_id]["status"] = "completed"
+        except Exception as e:
+            with _batch_lock:
+                _batch_tasks[task_id]["status"] = "completed"
+                _batch_tasks[task_id]["error"] = str(e)
+
+    threading.Thread(target=_run_batch, daemon=True).start()
+
+    return BatchSubmitResponse(task_id=task_id, status="running", total=len(req.codes))
+
+
+@router.get("/batch/{task_id}", response_model=BatchStatusResponse)
+async def get_batch_status(task_id: str):
+    """查询批量分析进度"""
+    with _batch_lock:
+        task = _batch_tasks.get(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    return BatchStatusResponse(**task)

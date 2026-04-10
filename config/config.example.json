@@ -1,0 +1,8 @@
+{
+  "watchlist": [],
+  "defaults": {
+    "market": "auto",
+    "days": 60,
+    "asset_type": "stock"
+  }
+}
