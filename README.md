@@ -7,7 +7,7 @@
     <img src="https://img.shields.io/github/actions/workflow/status/your-repo/stock-analysis/ci.yml?branch=main&style=flat-square" alt="CI">
   </a>
   <a href="https://pypi.org/project/stock-analysis/">
-    <img src="https://img.shields.io/badge/version-1.9.0-blue?style=flat-square" alt="Version">
+    <img src="https://img.shields.io/badge/version-1.10.0-blue?style=flat-square" alt="Version">
   </a>
   <a href="https://www.python.org/downloads/">
     <img src="https://img.shields.io/badge/python-3.8+-green?style=flat-square" alt="Python">

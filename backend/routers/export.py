@@ -166,7 +166,12 @@ async def export_history_csv(
     if start:
         query = query.filter(AnalysisRecord.analysis_time >= start)
     if end:
-        query = query.filter(AnalysisRecord.analysis_time <= end + " 23:59:59")
+        try:
+            from datetime import timedelta as _td
+            end_dt = datetime.strptime(end, "%Y-%m-%d") + _td(hours=23, minutes=59, seconds=59)
+        except (ValueError, TypeError):
+            end_dt = end + " 23:59:59"
+        query = query.filter(AnalysisRecord.analysis_time <= end_dt)
 
     records = query.order_by(desc(AnalysisRecord.analysis_time)).limit(limit).all()
 

@@ -1,5 +1,6 @@
 """SQLAlchemy 日志 Handler，将 WARNING+ 日志写入 system_logs 表"""
 
+import atexit
 import collections
 import logging
 import threading
@@ -9,6 +10,9 @@ from sqlalchemy.orm import Session
 
 from .database import SessionLocal
 from .models import SystemLog
+
+_flush_event = threading.Event()
+_flush_thread: threading.Thread | None = None
 
 
 class DBLogHandler(logging.Handler):
@@ -60,19 +64,32 @@ class DBLogHandler(logging.Handler):
 
 def _flush_loop(handler: DBLogHandler):
     """定时 flush 线程"""
-    while True:
-        time.sleep(5)
+    while not _flush_event.is_set():
+        _flush_event.wait(5)
         try:
             handler._flush()
         except Exception:
             pass
 
 
+def flush_on_exit():
+    """进程退出时执行一次 flush"""
+    _flush_event.set()
+    # 如果 flush 线程还在运行，等待其结束
+    if _flush_thread is not None and _flush_thread.is_alive():
+        _flush_thread.join(timeout=3)
+
+
 def setup_db_logging():
     """在根 logger 上安装 DB Handler，并启动定时 flush 线程"""
+    global _flush_thread
     handler = DBLogHandler()
     handler.setFormatter(logging.Formatter("%(message)s"))
     logging.getLogger().addHandler(handler)
 
-    flush_thread = threading.Thread(target=_flush_loop, args=(handler,), daemon=True, name="db_log_flush")
-    flush_thread.start()
+    if _flush_thread is not None and _flush_thread.is_alive():
+        return
+
+    _flush_thread = threading.Thread(target=_flush_loop, args=(handler,), daemon=True, name="db_log_flush")
+    _flush_thread.start()
+    atexit.register(flush_on_exit)

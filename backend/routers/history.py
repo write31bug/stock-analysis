@@ -42,7 +42,7 @@ async def save_history(req: SaveHistoryRequest, db: Session = Depends(get_db)):
         indicators_json=json.dumps(ti, ensure_ascii=False, default=str),
         analysis_time=datetime.now(timezone.utc),
     )
-    db.add(record)
+    record = db.merge(record)
     db.commit()
     db.refresh(record)
     return {"message": "保存成功", "id": record.id}

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stock-analysis"
-version = "1.9.0"
+version = "1.10.0"
 description = "股票技术分析工具，支持A股、港股、美股、基金"
 readme = "README.md"
 license = {text = "MIT"}

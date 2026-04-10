@@ -85,8 +85,8 @@ async def check_alerts(db: Session = Depends(get_db)):
 
     for code in codes:
         try:
-            normalized_code, _, _ = await asyncio.to_thread(fetcher.normalize_stock_code, code, "auto", "stock")
-            df = await asyncio.to_thread(fetcher.fetch_data, normalized_code, "auto", "stock", 10)
+            normalized_code, market, asset_type = await asyncio.to_thread(fetcher.normalize_stock_code, code, "auto", "stock")
+            df = await asyncio.to_thread(fetcher.fetch_data, normalized_code, market, asset_type, 10)
             if df is not None and not df.empty:
                 latest = df.iloc[-1]
                 price_map[code] = (float(latest["close"]), str(latest.get("name", "")))

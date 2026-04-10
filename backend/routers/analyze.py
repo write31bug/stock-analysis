@@ -108,12 +108,12 @@ def _compute_indicator_series(df: pd.DataFrame) -> Dict[str, List[SeriesPoint]]:
         rsv = (df["close"] - low_list) / (high_list - low_list) * 100
         rsv = rsv.fillna(50)
         k = rsv.ewm(com=2, adjust=False).mean()
-        d = k.ewm(com=2, adjust=False).mean()
-        j = 3 * k - 2 * d
+        kdj_d = k.ewm(com=2, adjust=False).mean()
+        kdj_j = 3 * k - 2 * kdj_d
 
         series["K"] = [SeriesPoint(date=d, value=round(float(v), 2) if pd.notna(v) else None) for d, v in zip(dates, k)]
-        series["D"] = [SeriesPoint(date=d, value=round(float(v), 2) if pd.notna(v) else None) for d, v in zip(dates, d)]
-        series["J"] = [SeriesPoint(date=d, value=round(float(v), 2) if pd.notna(v) else None) for d, v in zip(dates, j)]
+        series["D"] = [SeriesPoint(date=d, value=round(float(v), 2) if pd.notna(v) else None) for d, v in zip(dates, kdj_d)]
+        series["J"] = [SeriesPoint(date=d, value=round(float(v), 2) if pd.notna(v) else None) for d, v in zip(dates, kdj_j)]
 
     # BOLL
     if n >= 20:
@@ -172,7 +172,7 @@ async def analyze_stock(
 ):
     """单股技术分析"""
     if test:
-        result = await asyncio.to_thread(analyzer.analyze_with_mock_data, code, market, asset_type, days)
+        result = await asyncio.to_thread(analyzer.analyze_with_mock_data, code, market, asset_type, days, return_df=True)
     else:
         result = await asyncio.to_thread(analyzer.analyze, code, market, asset_type, days, return_df=True)
 
@@ -182,36 +182,10 @@ async def analyze_stock(
     # 获取 DataFrame 用于提取时序数据
     ohlcv = []
     indicator_series = {}
-    if test:
-        # test 模式：用 analyzer 内部同样的方式生成 df
-        from datetime import datetime as _dt
-
-        import numpy as _np
-
-        _np.random.seed(hash(code) % 2**32)
-        base_price = _np.random.uniform(10, 2000)
-        dates = pd.date_range(end=_dt.now(), periods=days, freq="D")
-        trend = _np.random.uniform(-0.002, 0.003)
-        returns = _np.random.normal(trend, 0.02, days)
-        prices = base_price * _np.cumprod(1 + returns)
-        df = pd.DataFrame(
-            {
-                "date": dates,
-                "open": prices * _np.random.uniform(0.98, 1.02, days),
-                "high": prices * _np.random.uniform(1.0, 1.05, days),
-                "low": prices * _np.random.uniform(0.95, 1.0, days),
-                "close": prices,
-                "volume": _np.random.uniform(1e6, 1e8, days).astype(int),
-            }
-        )
+    df = result.pop("_df", None)
+    if df is not None and not df.empty:
         ohlcv = _extract_ohlcv(df)
         indicator_series = _compute_indicator_series(df)
-    else:
-        # 正常模式：复用 analyzer 已获取的 DataFrame，不再重复请求
-        df = result.pop("_df", None)
-        if df is not None and not df.empty:
-            ohlcv = _extract_ohlcv(df)
-            indicator_series = _compute_indicator_series(df)
 
     result["ohlcv"] = [item.model_dump() for item in ohlcv]
     result["indicator_series"] = {k: [p.model_dump() for p in v] for k, v in indicator_series.items()}

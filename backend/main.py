@@ -20,6 +20,8 @@ from .log_handler import setup_db_logging
 from .routers import alerts, analyze, export, history, log, portfolio, settings, watchlist
 from .scheduler import get_scheduler_state, run_collect_once, start_scheduler, stop_scheduler
 
+from stock_analysis.constants import VERSION
+
 logger = logging.getLogger(__name__)
 
 # 任务存储：使用 OrderedDict + 手动清理，避免内存泄漏
@@ -49,8 +51,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="股票技术分析 API",
-    description="基于 stock-analysis v1.8.0 的 REST API",
-    version="1.8.0",
+    description=f"基于 stock-analysis v{VERSION} 的 REST API",
+    version=VERSION,
     lifespan=lifespan,
 )
 
@@ -77,7 +79,7 @@ app.include_router(settings.router, prefix="/api")
 
 @app.get("/api/health")
 async def health_check():
-    return {"status": "ok", "version": "1.8.0"}
+    return {"status": "ok", "version": VERSION}
 
 
 @app.get("/api/scheduler/status")
@@ -123,4 +125,4 @@ async def get_refresh_status(task_id: str):
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
     logger.exception("未捕获异常: %s", exc)
-    return JSONResponse(status_code=500, content={"detail": "服务器内部错误", "error": str(exc)})
+    return JSONResponse(status_code=500, content={"detail": "服务器内部错误"})

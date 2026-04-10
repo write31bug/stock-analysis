@@ -69,7 +69,7 @@ def _analyze_one(code: str) -> Dict[str, Any]:
         return {"error": str(e), "stock_info": {"code": code}}
 
 
-def _save_to_db(db: Session, result: Dict[str, Any]) -> None:
+def _save_to_db(db: Session, result: Dict[str, Any], portfolios: Dict[str, Any] | None = None) -> None:
     """将分析结果存入数据库，并更新 Portfolio 的分析时间"""
     if "error" in result:
         return
@@ -103,7 +103,10 @@ def _save_to_db(db: Session, result: Dict[str, Any]) -> None:
 
     # 更新 Portfolio 表的 updated_at（分析成功时）
     from .models import Portfolio
-    portfolio = db.query(Portfolio).filter(Portfolio.code == code).first()
+    if portfolios is not None:
+        portfolio = portfolios.get(code)
+    else:
+        portfolio = db.query(Portfolio).filter(Portfolio.code == code).first()
     if portfolio:
         portfolio.updated_at = datetime.now(timezone.utc)
 
@@ -148,8 +151,10 @@ def run_collect_once() -> Dict[str, Any]:
     if all_results:
         db = SessionLocal()
         try:
+            from .models import Portfolio
+            portfolios = {p.code: p for p in db.query(Portfolio).all()}
             for result in all_results:
-                _save_to_db(db, result)
+                _save_to_db(db, result, portfolios=portfolios)
             db.commit()
         except Exception as e:
             db.rollback()

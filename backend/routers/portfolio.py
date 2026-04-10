@@ -80,11 +80,18 @@ async def get_portfolio(db: Session = Depends(get_db)):
 @router.get("/portfolio/summary")
 async def get_portfolio_summary(db: Session = Depends(get_db)):
     """获取持仓汇总"""
-    total_amount = db.query(func.sum(Portfolio.hold_amount)).scalar() or 0
-    total_day_pnl = db.query(func.sum(Portfolio.day_pnl)).scalar() or 0
-    total_hold_pnl = db.query(func.sum(Portfolio.hold_pnl)).scalar() or 0
-    total_year_pnl = db.query(func.sum(Portfolio.year_pnl)).scalar() or 0
-    count = db.query(func.count(Portfolio.id)).scalar() or 0
+    row = db.query(
+        func.sum(Portfolio.hold_amount),
+        func.sum(Portfolio.day_pnl),
+        func.sum(Portfolio.hold_pnl),
+        func.sum(Portfolio.year_pnl),
+        func.count(Portfolio.id),
+    ).one()
+    total_amount = row[0] or 0
+    total_day_pnl = row[1] or 0
+    total_hold_pnl = row[2] or 0
+    total_year_pnl = row[3] or 0
+    count = row[4] or 0
     return {
         "count": count,
         "total_amount": round(total_amount, 2),

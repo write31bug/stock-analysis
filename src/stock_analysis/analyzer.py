@@ -245,6 +245,7 @@ class StockAnalyzer:
         market: str = "auto",
         asset_type: str = "stock",
         days: int = 60,
+        return_df: bool = False,
     ) -> Dict[str, Any]:
         """使用模拟数据进行离线测试（无需网络）"""
         # test 模式跳过 normalize（会触发网络请求），直接使用传入参数
@@ -306,7 +307,7 @@ class StockAnalyzer:
         levels = self.levels_finder.find_levels(df, asset_type=asset_type)
         score, trend, recommendation = Scorer.calculate_score(df, ma, macd, rsi, bollinger, kdj=kdj, volume=volume)
 
-        return {
+        result = {
             "stock_info": stock_info,
             "technical_indicators": {
                 "ma": ma,
@@ -325,6 +326,9 @@ class StockAnalyzer:
                 "summary": self._generate_summary(stock_info, ma, macd, rsi, bollinger, score, kdj=kdj, volume=volume),
             },
         }
+        if return_df:
+            result["_df"] = df
+        return result
 
     @staticmethod
     def _generate_summary(
