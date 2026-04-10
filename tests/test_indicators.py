@@ -110,3 +110,65 @@ class TestCalculateVolume:
         """全零成交量：volume_signal 应为 '无成交量数据'"""
         result = TechnicalIndicators.calculate_volume(zero_volume_df)
         assert result["volume_signal"] == "无成交量数据"
+
+
+class TestCalculateSAR:
+    """SAR 抛物线转向指标测试"""
+
+    def test_calculate_sar_normal(self, sample_df):
+        """60天数据：SAR 值和信号存在"""
+        result = TechnicalIndicators.calculate_sar(sample_df)
+        assert result["SAR"] is not None
+        assert result["signal"] in ("买入", "卖出")
+        assert result["trend"] in ("上升", "下降")
+
+    def test_calculate_sar_short_data(self, short_df):
+        """2天数据：应正常返回（只需要2天数据）"""
+        result = TechnicalIndicators.calculate_sar(short_df)
+        assert result["SAR"] is not None
+        assert result["signal"] != "数据不足"
+
+
+class TestCalculateCCI:
+    """CCI 顺势指标测试"""
+
+    def test_calculate_cci_normal(self, sample_df):
+        """60天数据：CCI 值存在"""
+        result = TechnicalIndicators.calculate_cci(sample_df)
+        assert result["CCI"] is not None
+        assert result["signal"] in ("超买", "超卖", "中性")
+
+    def test_calculate_cci_short_data(self, short_df):
+        """10天数据（<14）：signal 应为 '数据不足'"""
+        result = TechnicalIndicators.calculate_cci(short_df)
+        assert result["signal"] == "数据不足"
+
+
+class TestCalculateROC:
+    """ROC 变动率指标测试"""
+
+    def test_calculate_roc_normal(self, sample_df):
+        """60天数据：ROC 值存在"""
+        result = TechnicalIndicators.calculate_roc(sample_df)
+        assert result["ROC"] is not None
+        assert result["signal"] in ("上涨", "下跌", "持平")
+
+    def test_calculate_roc_short_data(self, short_df):
+        """10天数据（<13）：signal 应为 '数据不足'"""
+        result = TechnicalIndicators.calculate_roc(short_df)
+        assert result["signal"] == "数据不足"
+
+
+class TestCalculateWR:
+    """WR 威廉指标测试"""
+
+    def test_calculate_wr_normal(self, sample_df):
+        """60天数据：WR 值存在"""
+        result = TechnicalIndicators.calculate_wr(sample_df)
+        assert result["WR"] is not None
+        assert result["signal"] in ("超买", "超卖", "中性")
+
+    def test_calculate_wr_short_data(self, short_df):
+        """10天数据（<14）：signal 应为 '数据不足'"""
+        result = TechnicalIndicators.calculate_wr(short_df)
+        assert result["signal"] == "数据不足"
