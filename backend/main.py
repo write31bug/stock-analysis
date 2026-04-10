@@ -67,28 +67,28 @@ app.add_middleware(
 )
 
 # 注册路由
-app.include_router(analyze.router, prefix="/api")
-app.include_router(watchlist.router, prefix="/api")
-app.include_router(history.router, prefix="/api")
-app.include_router(alerts.router, prefix="/api")
-app.include_router(export.router, prefix="/api")
-app.include_router(portfolio.router, prefix="/api")
-app.include_router(log.router, prefix="/api")
-app.include_router(settings.router, prefix="/api")
+app.include_router(analyze.router, prefix="/api/v1")
+app.include_router(watchlist.router, prefix="/api/v1")
+app.include_router(history.router, prefix="/api/v1")
+app.include_router(alerts.router, prefix="/api/v1")
+app.include_router(export.router, prefix="/api/v1")
+app.include_router(portfolio.router, prefix="/api/v1")
+app.include_router(log.router, prefix="/api/v1")
+app.include_router(settings.router, prefix="/api/v1")
 
 
-@app.get("/api/health")
+@app.get("/api/v1/health")
 async def health_check():
     return {"status": "ok", "version": VERSION}
 
 
-@app.get("/api/scheduler/status")
+@app.get("/api/v1/scheduler/status")
 async def scheduler_status():
     """获取定时采集服务状态"""
     return get_scheduler_state()
 
 
-@app.post("/api/scheduler/refresh")
+@app.post("/api/v1/scheduler/refresh")
 async def manual_refresh():
     """手动触发一次采集（后台执行，返回任务ID）"""
     import threading
@@ -111,7 +111,7 @@ async def manual_refresh():
     return {"task_id": task_id, "status": "running"}
 
 
-@app.get("/api/scheduler/refresh/{task_id}")
+@app.get("/api/v1/scheduler/refresh/{task_id}")
 async def get_refresh_status(task_id: str):
     """查询手动刷新进度"""
     with _refresh_lock:

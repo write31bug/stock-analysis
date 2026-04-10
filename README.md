@@ -7,7 +7,7 @@
     <img src="https://img.shields.io/github/actions/workflow/status/your-repo/stock-analysis/ci.yml?branch=main&style=flat-square" alt="CI">
   </a>
   <a href="https://pypi.org/project/stock-analysis/">
-    <img src="https://img.shields.io/badge/version-1.10.0-blue?style=flat-square" alt="Version">
+    <img src="https://img.shields.io/badge/version-1.11.0-blue?style=flat-square" alt="Version">
   </a>
   <a href="https://www.python.org/downloads/">
     <img src="https://img.shields.io/badge/python-3.8+-green?style=flat-square" alt="Python">
@@ -68,7 +68,9 @@ stock-analysis/
 │   ├── scheduler.py            # 定时采集调度器
 │   ├── log_handler.py          # 数据库日志处理器
 │   ├── services/               # 公共服务模块
-│   │   └── analysis_service.py # 分析服务
+│   │   ├── analysis_service.py # 分析服务
+│   │   ├── auth_service.py     # API Key 认证服务
+│   │   └── config_service.py   # 配置管理服务（数据库存储）
 │   └── routers/
 │       ├── analyze.py          # 分析接口
 │       ├── watchlist.py        # 自选股管理接口
@@ -237,16 +239,16 @@ stock-analyze 600519 -d 120
 
 | 路由前缀 | 模块 | 说明 |
 |----------|------|------|
-| `/api/analyze` | `analyze.py` | 实时股票分析（单股/批量） |
-| `/api/watchlist` | `watchlist.py` | 自选股增删改查、分组管理（写操作需要API Key） |
-| `/api/portfolio` | `portfolio.py` | 持仓数据管理、Excel 导入（写操作需要API Key） |
-| `/api/history` | `history.py` | 历史记录查询、评分趋势 |
-| `/api/alerts` | `alerts.py` | 价格预警管理（写操作需要API Key） |
-| `/api/export` | `export.py` | 数据导出 CSV |
-| `/api/logs` | `log.py` | 系统日志查询 |
-| `/api/settings` | `settings.py` | 采集间隔配置（需要API Key） |
-| `/api/scheduler` | `main.py` | 定时采集状态、手动刷新（需要API Key） |
-| `/api/health` | `main.py` | 健康检查 |
+| `/api/v1/analyze` | `analyze.py` | 实时股票分析（单股/批量） |
+| `/api/v1/watchlist` | `watchlist.py` | 自选股增删改查、分组管理（写操作需要API Key） |
+| `/api/v1/portfolio` | `portfolio.py` | 持仓数据管理、Excel 导入（写操作需要API Key） |
+| `/api/v1/history` | `history.py` | 历史记录查询、评分趋势 |
+| `/api/v1/alerts` | `alerts.py` | 价格预警管理（写操作需要API Key） |
+| `/api/v1/export` | `export.py` | 数据导出 CSV |
+| `/api/v1/logs` | `log.py` | 系统日志查询 |
+| `/api/v1/settings` | `settings.py` | 采集间隔配置（需要API Key） |
+| `/api/v1/scheduler` | `main.py` | 定时采集状态、手动刷新（需要API Key） |
+| `/api/v1/health` | `main.py` | 健康检查 |
 
 ### API Key 认证
 
@@ -304,9 +306,11 @@ pre-commit install
 - **Prettier** — 前端代码格式化
 - **通用检查** — 尾部空白、文件末尾换行、YAML/JSON 语法、大文件检测
 
-### 配置文件
+### 配置管理
 
-#### 环境变量配置
+配置系统已从文件迁移到数据库存储，提供更好的可扩展性和多进程安全。
+
+#### 环境变量配置（基础配置）
 
 创建 `.env` 文件并配置以下环境变量：
 
@@ -317,33 +321,27 @@ pre-commit install
 # CORS 白名单（多个地址用逗号分隔）
 CORS_ORIGINS="http://localhost:5173"
 
-# 定时采集间隔（分钟）
-COLLECT_INTERVAL=3
-
 # API Key 认证（可选，未设置时跳过认证）
 # API_KEY="your-api-key-here"
 ```
 
-#### 自选股配置
+#### 应用配置（数据库存储）
 
-复制示例配置文件并根据需要修改：
+应用配置（自选股列表、默认参数、采集间隔等）现在存储在数据库的 `config` 表中。
 
-```bash
-cp config/config.example.json config/config.json
-```
+**向后兼容性：**
+- 首次启动时，系统会自动从旧的 `config/config.json` 文件迁移配置到数据库
+- 迁移完成后，旧配置文件将不再被使用
 
-配置项说明：
+**配置项说明：**
 
-```json
-{
-  "watchlist": [],           // 自选股列表，支持 "code" 或 "code:type" 格式
-  "defaults": {
-    "market": "auto",        // 默认市场：auto / ashare / hkstock / usstock
-    "days": 60,              // 默认历史数据天数
-    "asset_type": "stock"    // 默认资产类型：stock / fund
-  }
-}
-```
+| 配置键 | 说明 | 默认值 |
+|--------|------|--------|
+| `watchlist` | 自选股列表，支持 "code" 或 "code:type" 格式 | `[]` |
+| `defaults.market` | 默认市场：auto / ashare / hkstock / usstock | `auto` |
+| `defaults.days` | 默认历史数据天数 | `60` |
+| `defaults.asset_type` | 默认资产类型：stock / fund | `stock` |
+| `collect_interval` | 定时采集间隔（分钟） | `3` |
 
 ## 技术栈
 

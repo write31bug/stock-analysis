@@ -34,7 +34,7 @@ def get_scheduler_state() -> Dict[str, Any]:
 def _get_watchlist_codes() -> list:
     """从配置文件读取自选股代码列表"""
     try:
-        from stock_analysis.config import load_config
+        from .services.config_service import load_config
 
         config = load_config()
         watchlist = config.get("watchlist", [])

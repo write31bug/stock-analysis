@@ -1,7 +1,7 @@
 import axios from 'axios'
 import type { AnalysisResult, WatchlistItem, PriceAlert } from '../types'
 
-const api = axios.create({ baseURL: '/api', timeout: 60000 })
+const api = axios.create({ baseURL: '/api/v1', timeout: 60000 })
 
 // 单股分析
 export async function analyzeStock(code: string, market = 'auto', assetType = 'stock', days = 60, test = false) {

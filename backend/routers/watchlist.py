@@ -9,7 +9,7 @@ import pandas as pd
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile, Depends
 from pydantic import BaseModel
 
-from stock_analysis.config import load_config, save_config
+from ..services.config_service import load_config, save_config
 
 from ..schemas import (
     ImportResponse,
