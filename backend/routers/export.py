@@ -109,9 +109,10 @@ async def export_analysis_csv(
     market: str = Query("auto"),
     asset_type: str = Query("stock"),
     days: int = Query(60, ge=10, le=500),
+    limit: int = Query(10000, ge=1, le=100000),
 ):
     """导出分析结果为 CSV"""
-    code_list = [c.strip() for c in codes.split(",") if c.strip()]
+    code_list = [c.strip() for c in codes.split(",") if c.strip()][:limit]
     if not code_list:
         return StreamingResponse(
             iter(["空代码列表"]),
@@ -152,6 +153,7 @@ async def export_history_csv(
     trend: str = Query(None),
     start: str = Query(None),
     end: str = Query(None),
+    limit: int = Query(10000, ge=1, le=100000),
     db: Session = Depends(get_db),
 ):
     """导出历史记录为 CSV"""
@@ -166,7 +168,7 @@ async def export_history_csv(
     if end:
         query = query.filter(AnalysisRecord.analysis_time <= end + " 23:59:59")
 
-    records = query.order_by(desc(AnalysisRecord.analysis_time)).all()
+    records = query.order_by(desc(AnalysisRecord.analysis_time)).limit(limit).all()
 
     output = io.StringIO()
     writer = csv.writer(output)

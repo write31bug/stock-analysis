@@ -208,12 +208,19 @@ async def import_watchlist(
     if not file.filename:
         raise HTTPException(status_code=400, detail="未选择文件")
 
+    # 检查文件大小限制（5MB）
+    if file.size and file.size > 5 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="文件大小不能超过 5MB")
+
     suffix = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
     if suffix not in ("xlsx", "xls", "csv"):
         raise HTTPException(status_code=400, detail="仅支持 .xlsx / .xls / .csv 文件")
 
     try:
         content = await file.read()
+        # 兜底检查：客户端未发送 Content-Length 时用实际内容大小判断
+        if len(content) > 5 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="文件大小不能超过 5MB")
         if suffix == "csv":
             df = pd.read_csv(BytesIO(content), dtype=str)
         else:

@@ -80,14 +80,17 @@ async def check_alerts(db: Session = Depends(get_db)):
     # 收集需要查询的代码
     codes = list({a.code for a in untriggered})
     price_map: dict[str, tuple[float, str]] = {}
+    # 缓存 10 天数据用于 pct_change 计算
+    df_cache: dict[str, object] = {}
 
     for code in codes:
         try:
             normalized_code, _, _ = await asyncio.to_thread(fetcher.normalize_stock_code, code, "auto", "stock")
-            df = await asyncio.to_thread(fetcher.fetch_data, normalized_code, "auto", "stock", 5)
+            df = await asyncio.to_thread(fetcher.fetch_data, normalized_code, "auto", "stock", 10)
             if df is not None and not df.empty:
                 latest = df.iloc[-1]
                 price_map[code] = (float(latest["close"]), str(latest.get("name", "")))
+                df_cache[code] = df
         except Exception:
             continue
 
@@ -103,40 +106,32 @@ async def check_alerts(db: Session = Depends(get_db)):
 
         triggered = False
         if (
-            alert.condition_type == "above"
-            and current_price > alert.target_value
-            or alert.condition_type == "below"
-            and current_price < alert.target_value
+            (alert.condition_type == "above" and current_price > alert.target_value)
+            or (alert.condition_type == "below" and current_price < alert.target_value)
         ):
             triggered = True
         elif alert.condition_type == "pct_change_above":
-            # 需要前一日收盘价来计算涨跌幅
-            if alert.code in price_map:
+            # 使用缓存的 10 天数据计算涨跌幅
+            df = df_cache.get(alert.code)
+            if df is not None and len(df) >= 2:
                 try:
-                    normalized_code, _, _ = await asyncio.to_thread(
-                        fetcher.normalize_stock_code, alert.code, "auto", "stock"
-                    )
-                    df = await asyncio.to_thread(fetcher.fetch_data, normalized_code, "auto", "stock", 10)
-                    if df is not None and len(df) >= 2:
-                        prev_close = float(df.iloc[-2]["close"])
-                        pct_change = (current_price - prev_close) / prev_close * 100
-                        if pct_change > alert.target_value:
-                            triggered = True
+                    prev_close = float(df.iloc[-2]["close"])
+                    pct_change = (current_price - prev_close) / prev_close * 100
+                    if pct_change > alert.target_value:
+                        triggered = True
                 except Exception:
                     pass
         elif alert.condition_type == "pct_change_below":
-            try:
-                normalized_code, _, _ = await asyncio.to_thread(
-                    fetcher.normalize_stock_code, alert.code, "auto", "stock"
-                )
-                df = await asyncio.to_thread(fetcher.fetch_data, normalized_code, "auto", "stock", 10)
-                if df is not None and len(df) >= 2:
+            # 使用缓存的 10 天数据计算涨跌幅
+            df = df_cache.get(alert.code)
+            if df is not None and len(df) >= 2:
+                try:
                     prev_close = float(df.iloc[-2]["close"])
                     pct_change = (current_price - prev_close) / prev_close * 100
                     if pct_change < alert.target_value:
                         triggered = True
-            except Exception:
-                pass
+                except Exception:
+                    pass
 
         if triggered:
             alert.triggered = True

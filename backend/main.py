@@ -3,6 +3,7 @@
 import logging
 import os
 import threading
+from collections import OrderedDict
 from contextlib import asynccontextmanager
 
 # 加载 .env 文件（必须在 database 导入之前）
@@ -10,8 +11,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from .database import init_db
 from .log_handler import setup_db_logging
@@ -20,8 +22,16 @@ from .scheduler import get_scheduler_state, run_collect_once, start_scheduler, s
 
 logger = logging.getLogger(__name__)
 
-_refresh_tasks: dict = {}
+# 任务存储：使用 OrderedDict + 手动清理，避免内存泄漏
+_refresh_tasks: OrderedDict = {}
 _refresh_lock = threading.Lock()
+_MAX_TASKS = 100
+
+
+def _cleanup_old_tasks():
+    """清理旧任务，保留最新的 _MAX_TASKS 条"""
+    while len(_refresh_tasks) > _MAX_TASKS:
+        _refresh_tasks.popitem(last=False)
 
 
 @asynccontextmanager
@@ -44,10 +54,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS 配置（开发环境允许所有来源）
+# CORS 配置：从环境变量读取允许的 origin，默认仅本地开发
+_cors_origins = os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[o.strip() for o in _cors_origins if o.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -87,9 +98,11 @@ async def manual_refresh():
         try:
             result = run_collect_once()
             with _refresh_lock:
+                _cleanup_old_tasks()
                 _refresh_tasks[task_id] = {**result, "status": "completed"}
         except Exception as e:
             with _refresh_lock:
+                _cleanup_old_tasks()
                 _refresh_tasks[task_id] = {"status": "completed", "error": str(e), "collected": 0, "failed": 0}
 
     threading.Thread(target=_run, daemon=True).start()
@@ -102,5 +115,12 @@ async def get_refresh_status(task_id: str):
     with _refresh_lock:
         task = _refresh_tasks.get(task_id)
     if not task:
-        return {"status": "running"}  # 还没写入就是还在跑
+        raise HTTPException(status_code=404, detail=f"任务 {task_id} 不存在")
     return task
+
+
+# 全局异常处理
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    logger.exception("未捕获异常: %s", exc)
+    return JSONResponse(status_code=500, content={"detail": "服务器内部错误", "error": str(exc)})

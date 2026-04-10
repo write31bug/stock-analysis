@@ -66,9 +66,17 @@ async def get_history(
     if trend:
         query = query.filter(AnalysisRecord.trend == trend)
     if start:
+        try:
+            datetime.strptime(start, "%Y-%m-%d")
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="start 日期格式无效，应为 YYYY-MM-DD")
         query = query.filter(AnalysisRecord.analysis_time >= start)
     if end:
-        query = query.filter(AnalysisRecord.analysis_time <= end + " 23:59:59")
+        try:
+            end_dt = datetime.strptime(end, "%Y-%m-%d") + timedelta(hours=23, minutes=59, seconds=59)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="end 日期格式无效，应为 YYYY-MM-DD")
+        query = query.filter(AnalysisRecord.analysis_time <= end_dt)
 
     total = query.count()
     records = query.order_by(desc(AnalysisRecord.analysis_time)).offset((page - 1) * size).limit(size).all()

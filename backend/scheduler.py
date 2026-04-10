@@ -84,9 +84,7 @@ def _save_to_db(db: Session, result: Dict[str, Any]) -> None:
 
     import json
 
-    # 删除旧记录
-    db.query(AnalysisRecord).filter(AnalysisRecord.code == code).delete()
-
+    # 删除旧记录，改用 merge 实现 upsert
     record = AnalysisRecord(
         code=code,
         name=stock_info.get("name", ""),
@@ -101,7 +99,7 @@ def _save_to_db(db: Session, result: Dict[str, Any]) -> None:
         indicators_json=json.dumps(indicators, ensure_ascii=False, default=str) if indicators else None,
         analysis_time=datetime.now(timezone.utc),
     )
-    db.add(record)
+    db.merge(record)
 
     # 更新 Portfolio 表的 updated_at（分析成功时）
     from .models import Portfolio
@@ -195,9 +193,12 @@ def _scheduler_loop():
             time.sleep(1)
 
 
+_scheduler_thread: threading.Thread | None = None
+
+
 def start_scheduler(interval: int = 180):
     """启动定时采集服务"""
-    global _scheduler_state
+    global _scheduler_state, _scheduler_thread
     with _state_lock:
         if _scheduler_state["running"]:
             return
@@ -205,13 +206,14 @@ def start_scheduler(interval: int = 180):
         _scheduler_state["interval"] = interval
         _scheduler_state["next_run"] = datetime.now(timezone.utc).timestamp() + interval
 
-    t = threading.Thread(target=_scheduler_loop, daemon=True, name="scheduler")
-    t.start()
+    _scheduler_thread = threading.Thread(target=_scheduler_loop, daemon=True, name="scheduler")
+    _scheduler_thread.start()
 
 
-def stop_scheduler():
-    """停止定时采集服务"""
+def stop_scheduler() -> threading.Thread | None:
+    """停止定时采集服务，返回旧线程引用"""
     global _scheduler_state
     with _state_lock:
         _scheduler_state["running"] = False
     logger.info("定时采集服务已停止")
+    return _scheduler_thread

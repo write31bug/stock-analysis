@@ -26,7 +26,9 @@ async def get_interval():
 @router.put("/settings/interval")
 async def set_interval(req: IntervalRequest):
     """动态修改采集间隔（分钟）"""
-    stop_scheduler()
+    old_thread = stop_scheduler()
+    if old_thread and old_thread.is_alive():
+        old_thread.join(timeout=5)
     start_scheduler(interval=req.interval_minutes * 60)
     return {
         "message": f"采集间隔已修改为 {req.interval_minutes} 分钟",

@@ -102,12 +102,19 @@ async def import_portfolio(file: UploadFile = File(...), db: Session = Depends(g
     if not file.filename:
         raise HTTPException(status_code=400, detail="未选择文件")
 
+    # 检查文件大小限制（5MB）
+    if file.size and file.size > 5 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="文件大小不能超过 5MB")
+
     suffix = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
     if suffix not in ("xlsx", "xls", "csv"):
         raise HTTPException(status_code=400, detail="仅支持 .xlsx / .xls / .csv 文件")
 
     try:
         content = await file.read()
+        # 兜底检查：客户端未发送 Content-Length 时用实际内容大小判断
+        if len(content) > 5 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="文件大小不能超过 5MB")
         if suffix == "csv":
             df = pd.read_csv(BytesIO(content), dtype=str)
         else:
@@ -122,6 +129,10 @@ async def import_portfolio(file: UploadFile = File(...), db: Session = Depends(g
     updated = 0
     skipped = 0
 
+    # 批量获取已有记录，避免 N+1 查询
+    existing_records = db.query(Portfolio).all()
+    existing_map = {r.code: r for r in existing_records}
+
     for _, row in df.iterrows():
         code = str(row.get("代码", "")).strip()
         if code in SKIP_CODES:
@@ -132,8 +143,8 @@ async def import_portfolio(file: UploadFile = File(...), db: Session = Depends(g
         if name in ("nan", "None", "NaN"):
             name = ""
 
-        # 查找是否已存在
-        existing = db.query(Portfolio).filter(Portfolio.code == code).first()
+        # 查找是否已存在（从预加载的 map 中查找）
+        existing = existing_map.get(code)
 
         if existing:
             # 更新已有记录

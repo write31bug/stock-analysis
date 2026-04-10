@@ -9,13 +9,12 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 logger = logging.getLogger(__name__)
 
 # ── 数据库配置 ──────────────────────────────────────────
-# 默认 MySQL，可通过 .env 或环境变量覆盖
-_DEFAULT_MYSQL_URL = "mysql+pymysql://root:123456@localhost:3306/stock_analysis?charset=utf8mb4"
+# 通过环境变量 DATABASE_URL 配置，未配置时使用 SQLite
 _FALLBACK_SQLITE_URL = "sqlite:///{}".format(
     os.path.join(os.path.expanduser("~"), ".stock-analysis", "history.db")
 )
 
-DATABASE_URL = os.environ.get("DATABASE_URL", _DEFAULT_MYSQL_URL)
+DATABASE_URL = os.environ.get("DATABASE_URL", _FALLBACK_SQLITE_URL)
 _is_sqlite = DATABASE_URL.startswith("sqlite")
 
 

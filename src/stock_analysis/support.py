@@ -40,11 +40,11 @@ class SupportResistanceFinder:
             window_lows = df["low"].iloc[i - window : i].tolist() + df["low"].iloc[i + 1 : i + window + 1].tolist()
 
             # 局部高点（压力位）：严格大于窗口内所有其他值
-            if all(high >= wh for wh in window_highs):
+            if all(high > wh for wh in window_highs):
                 resistance_levels.append(round(float(high), 4))
 
             # 局部低点（支撑位）：严格小于窗口内所有其他值
-            if all(low <= wl for wl in window_lows):
+            if all(low < wl for wl in window_lows):
                 support_levels.append(round(float(low), 4))
 
         # 缺口检测

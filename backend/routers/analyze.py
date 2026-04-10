@@ -3,6 +3,7 @@
 import asyncio
 import threading
 import uuid
+from collections import OrderedDict
 from typing import Any, Dict, List
 
 import numpy as np
@@ -26,9 +27,16 @@ router = APIRouter(tags=["analyze"])
 analyzer = StockAnalyzer()
 fetcher = StockDataFetcher()
 
-# 批量任务存储
-_batch_tasks: Dict[str, Dict[str, Any]] = {}
+# 批量任务存储：限制最大数量，避免内存泄漏
+_batch_tasks: OrderedDict = {}
 _batch_lock = threading.Lock()
+_MAX_BATCH_TASKS = 100
+
+
+def _cleanup_old_batch_tasks():
+    """清理旧任务，保留最新的 _MAX_BATCH_TASKS 条"""
+    while len(_batch_tasks) > _MAX_BATCH_TASKS:
+        _batch_tasks.popitem(last=False)
 
 
 def _extract_ohlcv(df: pd.DataFrame) -> List[OHLCVItem]:
@@ -216,6 +224,7 @@ async def submit_batch(req: BatchSubmitRequest):
     """提交批量分析任务"""
     task_id = str(uuid.uuid4())[:8]
     with _batch_lock:
+        _cleanup_old_batch_tasks()
         _batch_tasks[task_id] = {
             "task_id": task_id,
             "status": "running",

@@ -7,7 +7,7 @@
     <img src="https://img.shields.io/github/actions/workflow/status/your-repo/stock-analysis/ci.yml?branch=main&style=flat-square" alt="CI">
   </a>
   <a href="https://pypi.org/project/stock-analysis/">
-    <img src="https://img.shields.io/badge/version-1.8.0-blue?style=flat-square" alt="Version">
+    <img src="https://img.shields.io/badge/version-1.9.0-blue?style=flat-square" alt="Version">
   </a>
   <a href="https://www.python.org/downloads/">
     <img src="https://img.shields.io/badge/python-3.8+-green?style=flat-square" alt="Python">
@@ -30,11 +30,14 @@
 - **多市场支持** — A 股 / 港股 / 美股 / ETF / 开放式基金
 - **9 维度技术指标评分** — 6 主指标 (MA / MACD / RSI / KDJ / BOLL / Volume) + 3 辅指标 (OBV / CCI / WR)
 - **K 线图 + 技术指标图表** — 基于 ECharts 的交互式可视化
-- **自选股分组管理** — 添加、删除、批量分析自选股列表
+- **自选股分组管理** — 添加、删除、批量分析、自动分组、Excel 导入
+- **持仓数据管理** — Excel 导入持仓、增量更新、盈亏展示
 - **价格预警通知** — 自定义预警条件，实时监控
 - **历史记录 + 评分趋势** — 追踪分析历史，观察评分变化
 - **数据导出 CSV** — 一键导出分析结果
-- **批量分析** — 逗号分隔多只股票，支持混合类型
+- **定时采集服务** — 可配置间隔自动分析自选股
+- **系统日志面板** — 实时查看 WARNING/ERROR 日志
+- **安全加固** — CORS 白名单、请求参数验证、文件上传限制、全局异常处理
 
 ## 项目结构
 
@@ -42,8 +45,10 @@
 stock-analysis/
 ├── pyproject.toml              # 项目配置与依赖管理
 ├── start.sh                    # 一键启动脚本（后端 + 前端）
+├── .env                        # 环境变量配置
 ├── config/
 │   └── config.example.json     # 配置文件示例
+├── docs/                       # 项目文档
 ├── src/stock_analysis/         # CLI 核心库
 │   ├── cli.py                  # 命令行入口 (argparse)
 │   ├── analyzer.py             # 分析引擎
@@ -53,18 +58,24 @@ stock-analysis/
 │   ├── output.py               # 输出格式化（表格/JSON）
 │   ├── config.py               # 配置文件管理
 │   ├── constants.py            # 常量与评分阈值
-│   └── support.py              # 辅助函数
+│   ├── dependencies.py         # 依赖可用性检查
+│   └── support.py              # 支撑压力位识别
 ├── backend/                    # FastAPI 后端
 │   ├── main.py                 # 应用入口与路由注册
-│   ├── database.py             # 数据库初始化
+│   ├── database.py             # 数据库连接（SQLite/MySQL）
 │   ├── models.py               # SQLAlchemy 模型
 │   ├── schemas.py              # Pydantic 数据模式
+│   ├── scheduler.py            # 定时采集调度器
+│   ├── log_handler.py          # 数据库日志处理器
 │   └── routers/
 │       ├── analyze.py          # 分析接口
 │       ├── watchlist.py        # 自选股管理接口
+│       ├── portfolio.py        # 持仓数据接口
 │       ├── history.py          # 历史记录接口
 │       ├── alerts.py           # 价格预警接口
-│       └── export.py           # 数据导出接口
+│       ├── export.py           # 数据导出接口
+│       ├── log.py              # 系统日志接口
+│       └── settings.py         # 系统设置接口
 ├── frontend/                   # Vue 3 前端
 │   └── src/
 │       ├── views/              # 页面组件
@@ -74,13 +85,14 @@ stock-analysis/
 │       │   └── Alerts.vue      # 价格预警
 │       ├── components/         # 通用组件
 │       │   ├── CandlestickChart.vue    # K 线图
-│       │   └── IndicatorCharts.vue     # 技术指标图表
+│       │   ├── IndicatorCharts.vue     # 技术指标图表
+│       │   └── SystemLogs.vue          # 系统日志面板
 │       ├── stores/             # Pinia 状态管理
 │       ├── api/                # API 请求封装
+│       ├── utils/              # 工具函数
 │       ├── router/             # 路由配置
 │       └── types/              # TypeScript 类型定义
-├── tests/                      # 测试用例
-└── .github/workflows/ci.yml    # CI/CD 配置
+└── tests/                      # 测试用例（181 个）
 ```
 
 ## 快速开始
@@ -223,11 +235,15 @@ stock-analyze 600519 -d 120
 
 | 路由前缀 | 模块 | 说明 |
 |----------|------|------|
-| `/api/analyze` | `analyze.py` | 实时股票分析 |
-| `/api/watchlist` | `watchlist.py` | 自选股增删改查 |
-| `/api/history` | `history.py` | 历史记录查询 |
+| `/api/analyze` | `analyze.py` | 实时股票分析（单股/批量） |
+| `/api/watchlist` | `watchlist.py` | 自选股增删改查、分组管理 |
+| `/api/portfolio` | `portfolio.py` | 持仓数据管理、Excel 导入 |
+| `/api/history` | `history.py` | 历史记录查询、评分趋势 |
 | `/api/alerts` | `alerts.py` | 价格预警管理 |
-| `/api/export` | `export.py` | 数据导出 |
+| `/api/export` | `export.py` | 数据导出 CSV |
+| `/api/logs` | `log.py` | 系统日志查询 |
+| `/api/settings` | `settings.py` | 采集间隔配置 |
+| `/api/scheduler` | `main.py` | 定时采集状态、手动刷新 |
 | `/api/health` | `main.py` | 健康检查 |
 
 ## 开发

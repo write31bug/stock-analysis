@@ -134,11 +134,13 @@ class TestSaveToDb:
 
         _save_to_db(db, result)
 
-        # 验证删除旧记录
-        db.query.return_value.filter.return_value.delete.assert_called_once()
-        # 验证添加了新记录
-        db.add.assert_called_once()
-        record = db.add.call_args[0][0]
+        # 验证使用 merge 而非先删后插
+        db.merge.assert_called_once()
+        # 验证不再调用 delete
+        db.query.return_value.filter.return_value.delete.assert_not_called()
+        # 验证不再调用 add（改用 merge）
+        db.add.assert_not_called()
+        record = db.merge.call_args[0][0]
         assert record.code == "600519"
         assert record.name == "贵州茅台"
         assert record.score == 75

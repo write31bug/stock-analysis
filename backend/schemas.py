@@ -1,8 +1,8 @@
 """Pydantic 请求/响应模型"""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # ---- OHLCV 时序数据 ----
 
@@ -34,7 +34,7 @@ class AnalyzeResponse(BaseModel):
 
 
 class BatchSubmitRequest(BaseModel):
-    codes: List[str]
+    codes: List[str] = Field(..., max_length=100)
     market: str = "auto"
     asset_type: str = "stock"
     days: int = 60
@@ -128,7 +128,7 @@ class ScoreTrendPoint(BaseModel):
 class PriceAlertCreate(BaseModel):
     code: str
     name: str = ""
-    condition_type: str
+    condition_type: Literal["above", "below", "pct_change_above", "pct_change_below"]
     target_value: float
 
 
