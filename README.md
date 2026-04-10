@@ -37,7 +37,7 @@
 - **数据导出 CSV** — 一键导出分析结果
 - **定时采集服务** — 可配置间隔自动分析自选股
 - **系统日志面板** — 实时查看 WARNING/ERROR 日志
-- **安全加固** — CORS 白名单、请求参数验证、文件上传限制、全局异常处理
+- **安全加固** — API Key 认证、CORS 白名单、请求参数验证、文件上传限制、全局异常处理
 
 ## 项目结构
 
@@ -67,6 +67,8 @@ stock-analysis/
 │   ├── schemas.py              # Pydantic 数据模式
 │   ├── scheduler.py            # 定时采集调度器
 │   ├── log_handler.py          # 数据库日志处理器
+│   ├── services/               # 公共服务模块
+│   │   └── analysis_service.py # 分析服务
 │   └── routers/
 │       ├── analyze.py          # 分析接口
 │       ├── watchlist.py        # 自选股管理接口
@@ -236,15 +238,25 @@ stock-analyze 600519 -d 120
 | 路由前缀 | 模块 | 说明 |
 |----------|------|------|
 | `/api/analyze` | `analyze.py` | 实时股票分析（单股/批量） |
-| `/api/watchlist` | `watchlist.py` | 自选股增删改查、分组管理 |
-| `/api/portfolio` | `portfolio.py` | 持仓数据管理、Excel 导入 |
+| `/api/watchlist` | `watchlist.py` | 自选股增删改查、分组管理（写操作需要API Key） |
+| `/api/portfolio` | `portfolio.py` | 持仓数据管理、Excel 导入（写操作需要API Key） |
 | `/api/history` | `history.py` | 历史记录查询、评分趋势 |
-| `/api/alerts` | `alerts.py` | 价格预警管理 |
+| `/api/alerts` | `alerts.py` | 价格预警管理（写操作需要API Key） |
 | `/api/export` | `export.py` | 数据导出 CSV |
 | `/api/logs` | `log.py` | 系统日志查询 |
-| `/api/settings` | `settings.py` | 采集间隔配置 |
-| `/api/scheduler` | `main.py` | 定时采集状态、手动刷新 |
+| `/api/settings` | `settings.py` | 采集间隔配置（需要API Key） |
+| `/api/scheduler` | `main.py` | 定时采集状态、手动刷新（需要API Key） |
 | `/api/health` | `main.py` | 健康检查 |
+
+### API Key 认证
+
+当设置了 `API_KEY` 环境变量后，所有写操作接口需要在请求头中添加：
+
+```bash
+X-API-Key: your-api-key-here
+```
+
+未设置 `API_KEY` 时，API Key 认证会被跳过。
 
 ## 开发
 
@@ -293,6 +305,26 @@ pre-commit install
 - **通用检查** — 尾部空白、文件末尾换行、YAML/JSON 语法、大文件检测
 
 ### 配置文件
+
+#### 环境变量配置
+
+创建 `.env` 文件并配置以下环境变量：
+
+```bash
+# 数据库配置（默认使用 SQLite，可选 MySQL）
+# DATABASE_URL="mysql+mysqlconnector://user:password@localhost:3306/stock_analysis"
+
+# CORS 白名单（多个地址用逗号分隔）
+CORS_ORIGINS="http://localhost:5173"
+
+# 定时采集间隔（分钟）
+COLLECT_INTERVAL=3
+
+# API Key 认证（可选，未设置时跳过认证）
+# API_KEY="your-api-key-here"
+```
+
+#### 自选股配置
 
 复制示例配置文件并根据需要修改：
 

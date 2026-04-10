@@ -127,7 +127,7 @@ async def import_portfolio(file: UploadFile = File(...), db: Session = Depends(g
         else:
             df = pd.read_excel(BytesIO(content), dtype=str)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"文件解析失败: {e}") from None
+        raise HTTPException(status_code=400, detail="文件解析失败: 请检查文件格式是否正确") from None
 
     if "代码" not in df.columns:
         raise HTTPException(status_code=400, detail=f"未找到'代码'列，当前列: {df.columns.tolist()}")

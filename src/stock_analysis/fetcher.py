@@ -696,48 +696,39 @@ class StockDataFetcher:
         Args:
             total_timeout: 整个 fallback 链的总超时（秒），默认 60 秒
         """
-        import threading
-
-        result_holder: list = [None]
-        error_holder: list = [None]
+        from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
         def _do_fetch():
             try:
                 if asset_type == "fund":
-                    result_holder[0] = StockDataFetcher.fetch_fund_data_akshare(code, days)
-                    return
+                    return StockDataFetcher.fetch_fund_data_akshare(code, days)
 
                 if market == "ashare":
                     df = StockDataFetcher.fetch_stock_data_sina(code, market, days)
                     if df is not None:
-                        result_holder[0] = df
-                        return
+                        return df
                     logger.info("新浪失败，尝试akshare备用...")
-                    result_holder[0] = StockDataFetcher.fetch_stock_data_akshare(code, market, days)
-                    return
+                    return StockDataFetcher.fetch_stock_data_akshare(code, market, days)
 
                 # 港美股：yfinance → akshare
                 df = StockDataFetcher.fetch_stock_data_yfinance(code, market, days)
                 if df is not None:
-                    result_holder[0] = df
-                    return
+                    return df
                 logger.info("yfinance失败，尝试akshare备用...")
-                result_holder[0] = StockDataFetcher.fetch_stock_data_akshare(code, market, days)
+                return StockDataFetcher.fetch_stock_data_akshare(code, market, days)
             except Exception as e:
-                error_holder[0] = e
+                logger.warning("获取数据异常: %s %s: %s", code, market, e)
+                return None
 
-        t = threading.Thread(target=_do_fetch)
-        t.start()
-        t.join(timeout=total_timeout)
-
-        if t.is_alive():
-            logger.warning("获取数据超时 (%.0fs): %s %s", total_timeout, code, market)
-            return None
-
-        if error_holder[0] is not None:
-            logger.warning("获取数据异常: %s %s: %s", code, market, error_holder[0])
-
-        return result_holder[0]
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_do_fetch)
+            try:
+                result = future.result(timeout=total_timeout)
+                return result
+            except TimeoutError:
+                logger.warning("获取数据超时 (%.0fs): %s %s", total_timeout, code, market)
+                future.cancel()
+                return None
 
     @staticmethod
     def fetch_quote(code: str, market: str, asset_type: str) -> Optional[Dict]:

@@ -255,12 +255,12 @@ async def submit_batch(req: BatchSubmitRequest):
             if success_results:
                 try:
                     from ..database import SessionLocal
-                    from ..scheduler import _save_to_db
+                    from ..services.analysis_service import save_analysis_result
 
                     db = SessionLocal()
                     try:
                         for r in success_results:
-                            _save_to_db(db, r)
+                            save_analysis_result(db, r)
                         db.commit()
                     except Exception as e:
                         db.rollback()

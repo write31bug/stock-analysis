@@ -83,16 +83,27 @@ async def check_alerts(db: Session = Depends(get_db)):
     # 缓存 10 天数据用于 pct_change 计算
     df_cache: dict[str, object] = {}
 
-    for code in codes:
+    async def fetch_code_data(code):
         try:
             normalized_code, market, asset_type = await asyncio.to_thread(fetcher.normalize_stock_code, code, "auto", "stock")
             df = await asyncio.to_thread(fetcher.fetch_data, normalized_code, market, asset_type, 10)
             if df is not None and not df.empty:
                 latest = df.iloc[-1]
-                price_map[code] = (float(latest["close"]), str(latest.get("name", "")))
-                df_cache[code] = df
+                price = float(latest["close"])
+                name = str(latest.get("name", ""))
+                return code, price, name, df
+            return code, None, None, None
         except Exception:
-            continue
+            return code, None, None, None
+
+    # 并发获取所有代码的数据
+    tasks = [fetch_code_data(code) for code in codes]
+    results = await asyncio.gather(*tasks)
+
+    for code, price, name, df in results:
+        if price is not None:
+            price_map[code] = (price, name)
+            df_cache[code] = df
 
     now = datetime.now(timezone.utc)
     for alert in untriggered:

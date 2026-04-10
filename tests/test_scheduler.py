@@ -1,3 +1,4 @@
+from backend.services.analysis_service import save_analysis_result
 """定时采集调度器测试"""
 
 import threading
@@ -6,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 from backend.scheduler import (
     _get_watchlist_codes,
-    _save_to_db,
+    save_analysis_result,
     get_scheduler_state,
     run_collect_once,
     start_scheduler,
@@ -103,7 +104,7 @@ class TestGetWatchlistCodes:
 
 
 class TestSaveToDb:
-    """_save_to_db — 将分析结果存入数据库"""
+    """save_analysis_result — 将分析结果存入数据库"""
 
     def _make_mock_db(self):
         """创建模拟数据库会话"""
@@ -111,7 +112,7 @@ class TestSaveToDb:
         db.query.return_value.filter.return_value.delete.return_value = 0
         return db
 
-    def test_save_to_db(self):
+    def testsave_analysis_result(self):
         """正常结果应创建 AnalysisRecord 并提交"""
         db = self._make_mock_db()
         result = {
@@ -132,7 +133,7 @@ class TestSaveToDb:
             "technical_indicators": {"ma5": 1750.0, "ma20": 1700.0},
         }
 
-        _save_to_db(db, result)
+        save_analysis_result(db, result)
 
         # 验证使用 merge 而非先删后插
         db.merge.assert_called_once()
@@ -151,7 +152,7 @@ class TestSaveToDb:
         assert record.summary == "测试摘要"
         assert record.indicators_json is not None
 
-    def test_save_to_db_error_result(self):
+    def testsave_analysis_result_error_result(self):
         """包含 error 键的结果不应保存"""
         db = self._make_mock_db()
         result = {
@@ -159,12 +160,12 @@ class TestSaveToDb:
             "stock_info": {"code": "600519"},
         }
 
-        _save_to_db(db, result)
+        save_analysis_result(db, result)
 
         db.add.assert_not_called()
         db.commit.assert_not_called()
 
-    def test_save_to_db_empty_code(self):
+    def testsave_analysis_result_empty_code(self):
         """code 为空时不应保存"""
         db = self._make_mock_db()
         result = {
@@ -172,19 +173,19 @@ class TestSaveToDb:
             "analysis": {"score": 50},
         }
 
-        _save_to_db(db, result)
+        save_analysis_result(db, result)
 
         db.add.assert_not_called()
         db.commit.assert_not_called()
 
-    def test_save_to_db_missing_stock_info(self):
+    def testsave_analysis_result_missing_stock_info(self):
         """缺少 stock_info 时不应保存"""
         db = self._make_mock_db()
         result = {
             "analysis": {"score": 50},
         }
 
-        _save_to_db(db, result)
+        save_analysis_result(db, result)
 
         db.add.assert_not_called()
         db.commit.assert_not_called()
@@ -193,7 +194,7 @@ class TestSaveToDb:
 class TestRunCollectOnce:
     """run_collect_once — 执行一次采集"""
 
-    @patch("backend.scheduler._save_to_db")
+    @patch("backend.scheduler.save_analysis_result")
     @patch("backend.scheduler._analyze_one")
     @patch("backend.scheduler._get_watchlist_codes")
     def test_run_collect_once(self, mock_codes, mock_analyze, mock_save):
@@ -226,7 +227,7 @@ class TestRunCollectOnce:
         assert result["failed"] == 0
         assert "自选股列表为空" in result["message"]
 
-    @patch("backend.scheduler._save_to_db")
+    @patch("backend.scheduler.save_analysis_result")
     @patch("backend.scheduler._analyze_one")
     @patch("backend.scheduler._get_watchlist_codes")
     def test_run_collect_once_all_fail(self, mock_codes, mock_analyze, mock_save):
@@ -245,10 +246,10 @@ class TestRunCollectOnce:
         assert result["collected"] == 0
         assert result["failed"] == 2
         assert len(result["errors"]) == 2
-        # 不应调用 _save_to_db
+        # 不应调用 save_analysis_result
         mock_save.assert_not_called()
 
-    @patch("backend.scheduler._save_to_db")
+    @patch("backend.scheduler.save_analysis_result")
     @patch("backend.scheduler._analyze_one")
     @patch("backend.scheduler._get_watchlist_codes")
     def test_run_collect_once_exception_in_analyze(self, mock_codes, mock_analyze, mock_save):

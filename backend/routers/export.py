@@ -122,15 +122,19 @@ async def export_analysis_csv(
     rows: list[list[str]] = []
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
-    for code in code_list:
+    async def analyze_code(code):
         try:
             result = await asyncio.to_thread(analyzer.analyze, code, market, asset_type, days)
             if "error" not in result:
-                rows.append(_build_analysis_row(result, now_str))
+                return _build_analysis_row(result, now_str)
             else:
-                rows.append([code, "", "", "", "", "", f"错误: {result['error']}", "", "", "", "", now_str])
+                return [code, "", "", "", "", "", "错误: 分析失败", "", "", "", "", now_str]
         except Exception as e:
-            rows.append([code, "", "", "", "", "", f"异常: {e}", "", "", "", "", now_str])
+            return [code, "", "", "", "", "", "异常: 数据获取失败", "", "", "", "", now_str]
+
+    # 并发分析所有股票
+    tasks = [analyze_code(code) for code in code_list]
+    rows = await asyncio.gather(*tasks)
 
     output = io.StringIO()
     writer = csv.writer(output)

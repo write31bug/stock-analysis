@@ -6,7 +6,7 @@ from typing import List
 from io import BytesIO
 
 import pandas as pd
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile, Depends
 from pydantic import BaseModel
 
 from stock_analysis.config import load_config, save_config
@@ -17,6 +17,7 @@ from ..schemas import (
     WatchlistItem,
     WatchlistResponse,
 )
+from ..services.auth_service import verify_api_key
 
 router = APIRouter(tags=["watchlist"])
 
@@ -97,7 +98,7 @@ async def get_watchlist_groups():
     return groups
 
 
-@router.post("/watchlist", response_model=WatchlistResponse)
+@router.post("/watchlist", response_model=WatchlistResponse, dependencies=[Depends(verify_api_key)])
 async def add_to_watchlist(item: WatchlistItem):
     """添加到自选股（自动判断分组）"""
     config = load_config()
@@ -131,7 +132,7 @@ class GroupNameRequest(BaseModel):
     name: str
 
 
-@router.post("/watchlist/group")
+@router.post("/watchlist/group", dependencies=[Depends(verify_api_key)])
 async def create_or_rename_group(req: GroupNameRequest):
     """创建或重命名分组（确保分组名称存在）"""
     config = load_config()
@@ -144,7 +145,7 @@ async def create_or_rename_group(req: GroupNameRequest):
     return {"message": f"分组 '{req.name}' 已存在"}
 
 
-@router.delete("/watchlist/group/{name}")
+@router.delete("/watchlist/group/{name}", dependencies=[Depends(verify_api_key)])
 async def delete_group(name: str):
     """删除分组，将该分组下的自选股移到默认分组"""
     if name == "默认":
@@ -173,7 +174,7 @@ async def delete_group(name: str):
     return {"message": f"分组 '{name}' 已删除，成员已移至默认分组"}
 
 
-@router.delete("/watchlist/{code}", response_model=WatchlistResponse)
+@router.delete("/watchlist/{code}", response_model=WatchlistResponse, dependencies=[Depends(verify_api_key)])
 async def remove_from_watchlist(code: str):
     """从自选股删除"""
     config = load_config()
@@ -193,7 +194,7 @@ async def remove_from_watchlist(code: str):
     )
 
 
-@router.post("/watchlist/import", response_model=ImportResponse)
+@router.post("/watchlist/import", response_model=ImportResponse, dependencies=[Depends(verify_api_key)])
 async def import_watchlist(
     file: UploadFile = File(...),
     group: str = Query("默认"),
