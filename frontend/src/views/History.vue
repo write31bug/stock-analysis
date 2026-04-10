@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, h, onMounted, computed } from 'vue'
-import { NButton, NTag, NPopconfirm, NSpace, useMessage } from 'naive-ui'
+import { NButton, NTag, NPopconfirm, NSpace, NDatePicker, NDrawer, NDrawerContent, NDataTable, NCard, NEmpty, NSpin, NInput, NSelect, useMessage } from 'naive-ui'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
 import { LineChart } from 'echarts/charts'
@@ -9,36 +9,30 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { getHistory, getScoreTrend, deleteHistory, clearHistory, exportHistoryCSV } from '../api'
 import type { HistoryRecord } from '../types'
 
-// ---------- ECharts Setup ----------
-
 use([LineChart, GridComponent, TooltipComponent, MarkLineComponent, CanvasRenderer])
-
-// ---------- Message ----------
 
 const message = useMessage()
 
-// ---------- Color Mappings ----------
-
 const trendColorMap: Record<string, string> = {
-  强势上涨: '#ef5350',
-  上涨趋势: '#FF9500',
-  震荡整理: '#5B8FF9',
-  下跌趋势: '#26a69a',
-  强势下跌: '#61DDAA',
+  '强势上涨': '#dc2626',
+  '上涨趋势': '#ea580c',
+  '震荡整理': '#2563eb',
+  '下跌趋势': '#059669',
+  '强势下跌': '#10b981',
 }
 
 function getTrendColor(trend: string | null): string {
-  if (!trend) return '#999'
-  return trendColorMap[trend] ?? '#999'
+  if (!trend) return '#6b7280'
+  return trendColorMap[trend] ?? '#6b7280'
 }
 
 function getScoreColor(score: number | null): string {
-  if (score == null) return '#999'
-  if (score >= 75) return '#ef5350'
-  if (score >= 60) return '#FF9500'
-  if (score >= 40) return '#5B8FF9'
-  if (score >= 25) return '#26a69a'
-  return '#61DDAA'
+  if (score == null) return '#6b7280'
+  if (score >= 75) return '#dc2626'
+  if (score >= 60) return '#ea580c'
+  if (score >= 40) return '#2563eb'
+  if (score >= 25) return '#059669'
+  return '#10b981'
 }
 
 function formatPrice(price: number | null): string {
@@ -53,16 +47,14 @@ function formatPct(pct: number | null): string {
 }
 
 function getPctColor(pct: number | null): string {
-  if (pct == null) return '#999'
-  return pct >= 0 ? '#ef5350' : '#26a69a'
+  if (pct == null) return '#6b7280'
+  return pct >= 0 ? '#dc2626' : '#059669'
 }
 
 function formatTime(time: string): string {
   if (!time) return '--'
   return time.replace('T', ' ').slice(0, 19)
 }
-
-// ---------- Trend Filter Options ----------
 
 const trendOptions = [
   { label: '全部', value: '' },
@@ -73,13 +65,9 @@ const trendOptions = [
   { label: '强势下跌', value: '强势下跌' },
 ]
 
-// ---------- Filter State ----------
-
 const filterCode = ref('')
 const filterTrend = ref('')
 const dateRange = ref<[number, number] | null>(null)
-
-// ---------- Table State ----------
 
 const loading = ref(false)
 const records = ref<HistoryRecord[]>([])
@@ -87,15 +75,11 @@ const total = ref(0)
 const page = ref(1)
 const size = ref(10)
 
-// ---------- Trend Drawer State ----------
-
 const drawerVisible = ref(false)
 const trendLoading = ref(false)
 const trendCode = ref('')
 const trendName = ref('')
 const trendData = ref<{ date: string; score: number }[]>([])
-
-// ---------- Fetch History ----------
 
 async function fetchHistory() {
   loading.value = true
@@ -124,8 +108,6 @@ async function fetchHistory() {
   }
 }
 
-// ---------- Filter Actions ----------
-
 function handleSearch() {
   page.value = 1
   fetchHistory()
@@ -139,8 +121,6 @@ function handleReset() {
   fetchHistory()
 }
 
-// ---------- Pagination ----------
-
 function handlePageChange(p: number) {
   page.value = p
   fetchHistory()
@@ -152,8 +132,6 @@ function handlePageSizeChange(s: number) {
   fetchHistory()
 }
 
-// ---------- Delete Record ----------
-
 async function handleDelete(id: number) {
   try {
     await deleteHistory(id)
@@ -163,8 +141,6 @@ async function handleDelete(id: number) {
     message.error('删除失败')
   }
 }
-
-// ---------- Clear All ----------
 
 async function handleClearAll() {
   try {
@@ -176,8 +152,6 @@ async function handleClearAll() {
     message.error('清空失败')
   }
 }
-
-// ---------- View Trend ----------
 
 async function handleViewTrend(record: HistoryRecord) {
   trendCode.value = record.code
@@ -194,8 +168,6 @@ async function handleViewTrend(record: HistoryRecord) {
     trendLoading.value = false
   }
 }
-
-// ---------- ECharts Option ----------
 
 const chartOption = computed(() => {
   if (!trendData.value.length) return null
@@ -223,17 +195,17 @@ const chartOption = computed(() => {
       data: dates,
       axisLabel: {
         fontSize: 11,
-        color: '#999',
+        color: '#6b7280',
         rotate: dates.length > 15 ? 45 : 0,
       },
-      axisLine: { lineStyle: { color: '#444' } },
+      axisLine: { lineStyle: { color: '#e5e7eb' } },
     },
     yAxis: {
       type: 'value' as const,
       min: 0,
       max: 100,
-      splitLine: { lineStyle: { color: '#333', type: 'dashed' as const } },
-      axisLabel: { fontSize: 11, color: '#999' },
+      splitLine: { lineStyle: { color: '#f3f4f6', type: 'dashed' as const } },
+      axisLabel: { fontSize: 11, color: '#6b7280' },
     },
     series: [
       {
@@ -242,8 +214,8 @@ const chartOption = computed(() => {
         smooth: true,
         symbol: 'circle' as const,
         symbolSize: 6,
-        lineStyle: { color: '#5B8FF9', width: 2 },
-        itemStyle: { color: '#5B8FF9' },
+        lineStyle: { color: '#2563eb', width: 2 },
+        itemStyle: { color: '#2563eb' },
         areaStyle: {
           color: {
             type: 'linear' as const,
@@ -252,8 +224,8 @@ const chartOption = computed(() => {
             x2: 0,
             y2: 1,
             colorStops: [
-              { offset: 0, color: 'rgba(91, 143, 249, 0.35)' },
-              { offset: 1, color: 'rgba(91, 143, 249, 0.02)' },
+              { offset: 0, color: 'rgba(37, 99, 235, 0.25)' },
+              { offset: 1, color: 'rgba(37, 99, 235, 0.02)' },
             ],
           },
         },
@@ -264,27 +236,27 @@ const chartOption = computed(() => {
           label: {
             position: 'insideEndTop' as const,
             fontSize: 11,
-            color: '#ccc',
+            color: '#6b7280',
           },
           data: [
             {
               yAxis: 75,
-              lineStyle: { color: '#ef5350' },
+              lineStyle: { color: '#dc2626' },
               label: { formatter: '强势上涨 75' },
             },
             {
               yAxis: 60,
-              lineStyle: { color: '#FF9500' },
+              lineStyle: { color: '#ea580c' },
               label: { formatter: '上涨趋势 60' },
             },
             {
               yAxis: 40,
-              lineStyle: { color: '#5B8FF9' },
+              lineStyle: { color: '#2563eb' },
               label: { formatter: '下跌趋势 40' },
             },
             {
               yAxis: 25,
-              lineStyle: { color: '#26a69a' },
+              lineStyle: { color: '#059669' },
               label: { formatter: '强势下跌 25' },
             },
           ],
@@ -293,8 +265,6 @@ const chartOption = computed(() => {
     ],
   }
 })
-
-// ---------- Table Columns ----------
 
 const columns = [
   {
@@ -374,7 +344,7 @@ const columns = [
     key: 'analysis_time',
     width: 170,
     render(row: HistoryRecord) {
-      return h('span', { style: { fontSize: '13px', color: '#bbb' } }, formatTime(row.analysis_time))
+      return h('span', { style: { fontSize: '13px', color: '#6b7280' } }, formatTime(row.analysis_time))
     },
   },
   {
@@ -389,7 +359,7 @@ const columns = [
           {
             size: 'small',
             type: 'primary',
-            quaternary: true,
+            secondary: true,
             onClick: () => handleViewTrend(row),
           },
           { default: () => '趋势' },
@@ -398,7 +368,7 @@ const columns = [
           NPopconfirm,
           { onPositiveClick: () => handleDelete(row.id) },
           {
-            trigger: () => h(NButton, { size: 'small', type: 'error', quaternary: true }, { default: () => '删除' }),
+            trigger: () => h(NButton, { size: 'small', type: 'error', secondary: true }, { default: () => '删除' }),
             default: () => '确定删除该记录？',
           },
         ),
@@ -406,8 +376,6 @@ const columns = [
     },
   },
 ]
-
-// ---------- Export CSV ----------
 
 const exporting = ref(false)
 
@@ -446,8 +414,6 @@ async function handleExportHistory() {
   }
 }
 
-// ---------- Lifecycle ----------
-
 onMounted(() => {
   fetchHistory()
 })
@@ -455,30 +421,28 @@ onMounted(() => {
 
 <template>
   <div class="history-page">
-    <!-- ==================== Page Header ==================== -->
     <div class="page-header">
-      <h2 class="page-title">历史记录</h2>
+      <h1 class="page-title">历史记录</h1>
       <NSpace :size="8">
-        <NButton type="info" size="small" quaternary :loading="exporting" @click="handleExportHistory">
+        <NButton type="info" size="small" secondary :loading="exporting" @click="handleExportHistory">
           导出历史
         </NButton>
         <NPopconfirm @positive-click="handleClearAll">
           <template #trigger>
-            <NButton type="error" size="small" quaternary>清空全部</NButton>
+            <NButton type="error" size="small" secondary>清空全部</NButton>
           </template>
           <span>确定清空全部历史记录？此操作不可恢复。</span>
         </NPopconfirm>
       </NSpace>
     </div>
 
-    <!-- ==================== Filter Bar ==================== -->
-    <NCard class="filter-card" :bordered="false">
+    <div class="content-section">
       <div class="filter-row">
         <NInput
           v-model:value="filterCode"
           placeholder="股票代码"
           clearable
-          style="width: 160px"
+          class="filter-input"
           @keyup.enter="handleSearch"
         />
         <NSelect
@@ -486,22 +450,21 @@ onMounted(() => {
           :options="trendOptions"
           placeholder="趋势筛选"
           clearable
-          style="width: 140px"
+          class="filter-select"
         />
         <NDatePicker
           v-model:value="dateRange"
           type="daterange"
           clearable
           :default-time="['00:00:00', '23:59:59']"
-          style="width: 280px"
+          class="filter-date"
         />
-        <NButton type="primary" @click="handleSearch">搜索</NButton>
-        <NButton @click="handleReset">重置</NButton>
+        <NButton type="primary" @click="handleSearch" class="search-button">搜索</NButton>
+        <NButton @click="handleReset" class="reset-button">重置</NButton>
       </div>
-    </NCard>
+    </div>
 
-    <!-- ==================== Data Table ==================== -->
-    <NCard class="table-card" :bordered="false">
+    <div class="content-section">
       <NDataTable
         :columns="columns"
         :data="records"
@@ -520,10 +483,10 @@ onMounted(() => {
           onUpdatePageSize: (s: number) => handlePageSizeChange(s),
         }"
         size="small"
+        class="history-table"
       />
-    </NCard>
+    </div>
 
-    <!-- ==================== Trend Drawer ==================== -->
     <NDrawer v-model:show="drawerVisible" :width="680" placement="right">
       <NDrawerContent :title="`${trendName} - 评分趋势`" closable>
         <div v-if="trendLoading" class="trend-loading">
@@ -539,33 +502,35 @@ onMounted(() => {
 
 <style scoped>
 .history-page {
-  max-width: 1200px;
+  max-width: 1300px;
   margin: 0 auto;
-  padding: 16px;
+  padding: 32px 24px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 24px;
 }
-
-/* ---------- Page Header ---------- */
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .page-title {
-  font-size: 22px;
+  font-size: 32px;
   font-weight: 700;
-  color: var(--text-color-1, #fff);
+  color: #111827;
   margin: 0;
+  letter-spacing: -0.02em;
 }
 
-/* ---------- Filter Card ---------- */
-
-.filter-card {
-  margin-bottom: 0;
+.content-section {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #f3f4f6;
+  padding: 24px;
 }
 
 .filter-row {
@@ -575,13 +540,29 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
-/* ---------- Table Card ---------- */
-
-.table-card {
-  margin-bottom: 0;
+.filter-input {
+  width: 160px;
 }
 
-/* ---------- Trend Drawer ---------- */
+.filter-select {
+  width: 140px;
+}
+
+.filter-date {
+  width: 280px;
+}
+
+.search-button {
+  font-weight: 500;
+}
+
+.reset-button {
+  font-weight: 500;
+}
+
+.history-table {
+  border-radius: 8px;
+}
 
 .trend-loading {
   display: flex;
@@ -590,7 +571,7 @@ onMounted(() => {
   justify-content: center;
   padding: 60px 0;
   gap: 16px;
-  color: var(--text-color-3, #999);
+  color: #6b7280;
   font-size: 14px;
 }
 
@@ -599,16 +580,24 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 60px 0;
-  color: var(--text-color-3, #999);
+  color: #6b7280;
   font-size: 14px;
 }
 
-/* ---------- Responsive ---------- */
-
 @media (max-width: 768px) {
   .history-page {
-    padding: 8px;
-    gap: 10px;
+    padding: 20px 16px;
+    gap: 20px;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .page-title {
+    font-size: 24px;
   }
 
   .filter-row {
@@ -616,9 +605,9 @@ onMounted(() => {
     align-items: stretch;
   }
 
-  .filter-row .n-input,
-  .filter-row .n-select,
-  .filter-row .n-date-picker {
+  .filter-input,
+  .filter-select,
+  .filter-date {
     width: 100% !important;
   }
 }

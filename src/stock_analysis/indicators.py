@@ -169,8 +169,10 @@ class TechnicalIndicators:
 
         low_list = df["low"].rolling(window=n, min_periods=1).min()
         high_list = df["high"].rolling(window=n, min_periods=1).max()
-        rsv = (df["close"] - low_list) / (high_list - low_list) * 100
-        rsv = rsv.fillna(50)
+        # 避免除零错误
+        range_list = high_list - low_list
+        rsv = np.where(range_list > 0, (df["close"] - low_list) / range_list * 100, 50)
+        rsv = pd.Series(rsv, index=df.index)
 
         k = rsv.ewm(com=m1 - 1, adjust=False).mean()
         d = k.ewm(com=m2 - 1, adjust=False).mean()

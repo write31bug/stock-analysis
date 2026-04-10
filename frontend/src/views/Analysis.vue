@@ -25,13 +25,9 @@ import { useAnalysisStore } from '../stores/analysis'
 import { saveHistory } from '../api'
 import type { SeriesPoint } from '../types'
 
-// ---------- Route & Store ----------
-
 const route = useRoute()
 const store = useAnalysisStore()
 const message = useMessage()
-
-// ---------- Search Form State ----------
 
 const searchCode = ref('')
 const market = ref('auto')
@@ -59,8 +55,6 @@ const daysOptions = [
   { label: '250天', value: 250 },
 ]
 
-// ---------- Actions ----------
-
 async function handleAnalyze() {
   const code = searchCode.value.trim()
   if (!code) {
@@ -70,13 +64,10 @@ async function handleAnalyze() {
   await store.analyze(code, market.value, assetType.value, days.value)
 }
 
-// ---------- Auto-trigger from route ----------
-
 onMounted(() => {
   const code = (route.params.code as string) || ''
   if (code) {
     searchCode.value = code
-    // 从 query 参数读取资产类型
     const queryType = route.query.type as string
     if (queryType && ['stock', 'fund'].includes(queryType)) {
       assetType.value = queryType
@@ -96,35 +87,29 @@ watch(
   },
 )
 
-// ---------- Computed: Analysis Result ----------
-
 const result = computed(() => store.result)
 const loading = computed(() => store.loading)
 const error = computed(() => store.error)
 
-// ---------- Trend Color Mapping ----------
-
 const trendColorMap: Record<string, string> = {
-  强势上涨: '#ef5350',
-  上涨趋势: '#FF9500',
-  震荡整理: '#5B8FF9',
-  下跌趋势: '#26a69a',
-  强势下跌: '#61DDAA',
+  '强势上涨': '#dc2626',
+  '上涨趋势': '#ea580c',
+  '震荡整理': '#2563eb',
+  '下跌趋势': '#059669',
+  '强势下跌': '#10b981',
 }
 
 function getTrendColor(trend: string): string {
-  return trendColorMap[trend] ?? '#999'
+  return trendColorMap[trend] ?? '#6b7280'
 }
 
 function getScoreColor(score: number): string {
-  if (score >= 75) return '#ef5350'
-  if (score >= 60) return '#FF9500'
-  if (score >= 40) return '#5B8FF9'
-  if (score >= 25) return '#26a69a'
-  return '#61DDAA'
+  if (score >= 75) return '#dc2626'
+  if (score >= 60) return '#ea580c'
+  if (score >= 40) return '#2563eb'
+  if (score >= 25) return '#059669'
+  return '#10b981'
 }
-
-// ---------- Price Display ----------
 
 function formatPrice(price: number | null): string {
   if (price == null) return '--'
@@ -138,11 +123,9 @@ function formatPct(pct: number | null): string {
 }
 
 function getPctColor(pct: number | null): string {
-  if (pct == null) return '#999'
-  return pct >= 0 ? '#ef5350' : '#26a69a'
+  if (pct == null) return '#6b7280'
+  return pct >= 0 ? '#dc2626' : '#059669'
 }
-
-// ---------- MA Series Extraction ----------
 
 const maSeries = computed<Record<string, SeriesPoint[]>>(() => {
   if (!result.value?.indicator_series) return {}
@@ -155,11 +138,8 @@ const maSeries = computed<Record<string, SeriesPoint[]>>(() => {
   return series
 })
 
-// ---------- Technical Indicators ----------
-
 const indicators = computed(() => result.value?.technical_indicators ?? {})
 
-// MA signal
 const maSignal = computed(() => {
   const ti = indicators.value
   const ma5 = ti.ma?.MA5
@@ -170,7 +150,6 @@ const maSignal = computed(() => {
   return '--'
 })
 
-// MACD signal
 const macdSignal = computed(() => {
   const ti = indicators.value
   const dif = ti.macd?.DIF
@@ -183,7 +162,6 @@ const macdSignal = computed(() => {
   return '中性'
 })
 
-// RSI status
 const rsiStatus = computed(() => {
   const ti = indicators.value
   const rsi6 = ti.rsi?.RSI6
@@ -195,7 +173,6 @@ const rsiStatus = computed(() => {
   return '中性'
 })
 
-// KDJ signal
 const kdjSignal = computed(() => {
   const ti = indicators.value
   const k = ti.kdj?.K
@@ -210,7 +187,6 @@ const kdjSignal = computed(() => {
   return '空头'
 })
 
-// BOLL position
 const bollPosition = computed(() => {
   const ti = indicators.value
   return ti.bollinger?.position ?? '--'
@@ -221,13 +197,11 @@ const bollSqueeze = computed(() => {
   return ti.bollinger?.squeeze ? '收窄' : '扩张'
 })
 
-// Volume signal
 const volumeSignal = computed(() => {
   const ti = indicators.value
   return ti.volume_analysis?.volume_signal ?? '--'
 })
 
-// OBV trend
 const obvTrend = computed(() => {
   const ti = indicators.value
   const obv = ti.obv?.OBV
@@ -236,7 +210,6 @@ const obvTrend = computed(() => {
   return obv > obvPrev ? '上升' : '下降'
 })
 
-// CCI status
 const cciStatus = computed(() => {
   const ti = indicators.value
   const cci = ti.cci?.CCI
@@ -246,7 +219,6 @@ const cciStatus = computed(() => {
   return '中性'
 })
 
-// WR status
 const wrStatus = computed(() => {
   const ti = indicators.value
   const wr = ti.wr?.WR
@@ -256,18 +228,12 @@ const wrStatus = computed(() => {
   return '中性'
 })
 
-// ---------- Key Levels ----------
-
 const keyLevels = computed(() => result.value?.key_levels ?? {})
-
-// ---------- Helper: safe number display ----------
 
 function fmt(val: number | null | undefined, digits = 2): string {
   if (val == null) return '--'
   return Number(val).toFixed(digits)
 }
-
-// ---------- Saving state ----------
 
 const saving = ref(false)
 async function onSave() {
@@ -286,45 +252,45 @@ async function onSave() {
 
 <template>
   <div class="analysis-page">
-    <!-- ==================== Search Bar ==================== -->
-    <NCard class="search-card" :bordered="false">
-      <NSpace vertical :size="12">
-        <NInputGroup>
+    <div class="page-header">
+      <h1 class="page-title">股票分析</h1>
+      <p class="page-subtitle">技术指标 · K线图表 · 深度分析</p>
+    </div>
+
+    <div class="content-section">
+      <div class="search-bar">
+        <NInputGroup class="search-input-group">
           <NInput
             v-model:value="searchCode"
             placeholder="输入股票代码，如 600519 / 00700 / AAPL"
             clearable
-            style="flex: 1; min-width: 200px"
+            class="code-search-input"
             @keyup.enter="handleAnalyze"
           />
-          <NButton type="primary" :loading="loading" @click="handleAnalyze"> 分析 </NButton>
+          <NButton type="primary" :loading="loading" @click="handleAnalyze" class="search-button">分析</NButton>
         </NInputGroup>
-        <NSpace :size="12" :wrap="true">
-          <NSelect v-model:value="market" :options="marketOptions" style="width: 130px" size="small" />
-          <NSelect v-model:value="assetType" :options="assetTypeOptions" style="width: 110px" size="small" />
-          <NSelect v-model:value="days" :options="daysOptions" style="width: 100px" size="small" />
+        <NSpace :size="12" :wrap="true" class="search-options">
+          <NSelect v-model:value="market" :options="marketOptions" size="small" class="option-select" />
+          <NSelect v-model:value="assetType" :options="assetTypeOptions" size="small" class="option-select" />
+          <NSelect v-model:value="days" :options="daysOptions" size="small" class="option-select" />
         </NSpace>
-      </NSpace>
-    </NCard>
+      </div>
+    </div>
 
-    <!-- ==================== Loading ==================== -->
     <div v-if="loading" class="loading-wrapper">
       <NSpin size="large" />
       <span class="loading-text">正在分析中...</span>
     </div>
 
-    <!-- ==================== Error ==================== -->
     <NAlert v-if="error && !loading" type="error" :title="error" class="error-alert" />
 
-    <!-- ==================== Result Sections ==================== -->
     <template v-if="result && !loading">
-      <!-- Stock Info Header -->
-      <NCard class="stock-header-card" :bordered="false">
+      <div class="content-section">
         <div class="stock-header">
           <div class="stock-header-left">
             <div class="stock-name-row">
               <span class="stock-name">{{ result.stock_info.name }}</span>
-              <NTag size="small" :bordered="false" type="info">
+              <NTag size="small" bordered type="info" class="code-tag">
                 {{ result.stock_info.code }}
               </NTag>
             </div>
@@ -343,71 +309,58 @@ async function onSave() {
 
           <div class="stock-header-right">
             <div class="score-section">
-              <NStatistic
-                :value="result.analysis.score"
-                class="score-statistic"
-                :style="{
-                  '--score-color': getScoreColor(result.analysis.score),
-                }"
-              >
-                <template #prefix>
-                  <span class="score-label">评分</span>
-                </template>
-              </NStatistic>
+              <div class="score-value" :style="{ color: getScoreColor(result.analysis.score) }">{{ result.analysis.score }}</div>
+              <div class="score-label">评分</div>
               <NTag
-                :color="{
-                  color: getTrendColor(result.analysis.trend),
-                  textColor: '#fff',
-                }"
+                :style="{ backgroundColor: getTrendColor(result.analysis.trend), color: '#fff' }"
                 size="medium"
                 round
+                bordered
                 class="trend-tag"
               >
                 {{ result.analysis.trend }}
               </NTag>
             </div>
-            <div class="recommendation">
-              {{ result.analysis.recommendation }}
-            </div>
-            <NButton size="small" :loading="saving" @click="onSave"> 保存记录 </NButton>
+            <div class="recommendation">{{ result.analysis.recommendation }}</div>
+            <NButton size="small" :loading="saving" @click="onSave" class="save-button">保存记录</NButton>
           </div>
         </div>
-      </NCard>
+      </div>
 
-      <!-- Summary -->
-      <NCard v-if="result.analysis?.summary" title="分析摘要" :bordered="false" class="section-card">
+      <div v-if="result.analysis?.summary" class="content-section">
+        <div class="section-header">
+          <h2 class="section-title">分析摘要</h2>
+        </div>
         <p class="summary-text">{{ result.analysis.summary }}</p>
-      </NCard>
+      </div>
 
-      <!-- Charts -->
-      <NCard title="K线图" :bordered="false" class="section-card">
-        <CandlestickChart :ohlcv="result.ohlcv" :ma-series="maSeries" :height="500" />
-      </NCard>
+      <div class="content-section">
+        <div class="section-header">
+          <h2 class="section-title">K线图</h2>
+        </div>
+        <CandlestickChart :ohlcv="result.ohlcv" :ma-series="maSeries" :height="450" />
+      </div>
 
-      <NCard title="技术指标图" :bordered="false" class="section-card">
-        <IndicatorCharts :indicator-series="result.indicator_series" :height="400" />
-      </NCard>
+      <div class="content-section">
+        <div class="section-header">
+          <h2 class="section-title">技术指标图</h2>
+        </div>
+        <IndicatorCharts :indicator-series="result.indicator_series" :height="380" />
+      </div>
 
-      <!-- Technical Indicators Detail Grid -->
-      <NCard title="技术指标详情" :bordered="false" class="section-card">
+      <div class="content-section">
+        <div class="section-header">
+          <h2 class="section-title">技术指标详情</h2>
+        </div>
         <NGrid :x-gap="16" :y-gap="16" responsive="screen" item-responsive :cols="{ s: 1, m: 2, l: 3 }">
-          <!-- MA -->
           <NGridItem span="1 m:1 l:1">
             <div class="indicator-card">
               <div class="indicator-card-title">MA 均线</div>
               <NDescriptions :column="1" label-placement="left" size="small" bordered>
-                <NDescriptionsItem label="MA5">
-                  {{ fmt(indicators.ma?.MA5) }}
-                </NDescriptionsItem>
-                <NDescriptionsItem label="MA10">
-                  {{ fmt(indicators.ma?.MA10) }}
-                </NDescriptionsItem>
-                <NDescriptionsItem label="MA20">
-                  {{ fmt(indicators.ma?.MA20) }}
-                </NDescriptionsItem>
-                <NDescriptionsItem label="MA60">
-                  {{ fmt(indicators.ma?.MA60) }}
-                </NDescriptionsItem>
+                <NDescriptionsItem label="MA5">{{ fmt(indicators.ma?.MA5) }}</NDescriptionsItem>
+                <NDescriptionsItem label="MA10">{{ fmt(indicators.ma?.MA10) }}</NDescriptionsItem>
+                <NDescriptionsItem label="MA20">{{ fmt(indicators.ma?.MA20) }}</NDescriptionsItem>
+                <NDescriptionsItem label="MA60">{{ fmt(indicators.ma?.MA60) }}</NDescriptionsItem>
               </NDescriptions>
               <div class="indicator-signal-row">
                 <span class="signal-label">信号:</span>
@@ -418,20 +371,13 @@ async function onSave() {
             </div>
           </NGridItem>
 
-          <!-- MACD -->
           <NGridItem span="1 m:1 l:1">
             <div class="indicator-card">
               <div class="indicator-card-title">MACD</div>
               <NDescriptions :column="1" label-placement="left" size="small" bordered>
-                <NDescriptionsItem label="DIF">
-                  {{ fmt(indicators.macd?.DIF, 3) }}
-                </NDescriptionsItem>
-                <NDescriptionsItem label="DEA">
-                  {{ fmt(indicators.macd?.DEA, 3) }}
-                </NDescriptionsItem>
-                <NDescriptionsItem label="MACD">
-                  {{ fmt(indicators.macd?.MACD, 3) }}
-                </NDescriptionsItem>
+                <NDescriptionsItem label="DIF">{{ fmt(indicators.macd?.DIF, 3) }}</NDescriptionsItem>
+                <NDescriptionsItem label="DEA">{{ fmt(indicators.macd?.DEA, 3) }}</NDescriptionsItem>
+                <NDescriptionsItem label="MACD">{{ fmt(indicators.macd?.MACD, 3) }}</NDescriptionsItem>
               </NDescriptions>
               <div class="indicator-signal-row">
                 <span class="signal-label">信号:</span>
@@ -449,20 +395,13 @@ async function onSave() {
             </div>
           </NGridItem>
 
-          <!-- RSI -->
           <NGridItem span="1 m:1 l:1">
             <div class="indicator-card">
               <div class="indicator-card-title">RSI</div>
               <NDescriptions :column="1" label-placement="left" size="small" bordered>
-                <NDescriptionsItem label="RSI6">
-                  {{ fmt(indicators.rsi?.RSI6, 2) }}
-                </NDescriptionsItem>
-                <NDescriptionsItem label="RSI12">
-                  {{ fmt(indicators.rsi?.RSI12, 2) }}
-                </NDescriptionsItem>
-                <NDescriptionsItem label="RSI24">
-                  {{ fmt(indicators.rsi?.RSI24, 2) }}
-                </NDescriptionsItem>
+                <NDescriptionsItem label="RSI6">{{ fmt(indicators.rsi?.RSI6, 2) }}</NDescriptionsItem>
+                <NDescriptionsItem label="RSI12">{{ fmt(indicators.rsi?.RSI12, 2) }}</NDescriptionsItem>
+                <NDescriptionsItem label="RSI24">{{ fmt(indicators.rsi?.RSI24, 2) }}</NDescriptionsItem>
               </NDescriptions>
               <div class="indicator-signal-row">
                 <span class="signal-label">状态:</span>
@@ -487,20 +426,13 @@ async function onSave() {
             </div>
           </NGridItem>
 
-          <!-- KDJ -->
           <NGridItem span="1 m:1 l:1">
             <div class="indicator-card">
               <div class="indicator-card-title">KDJ</div>
               <NDescriptions :column="1" label-placement="left" size="small" bordered>
-                <NDescriptionsItem label="K">
-                  {{ fmt(indicators.kdj?.K, 2) }}
-                </NDescriptionsItem>
-                <NDescriptionsItem label="D">
-                  {{ fmt(indicators.kdj?.D, 2) }}
-                </NDescriptionsItem>
-                <NDescriptionsItem label="J">
-                  {{ fmt(indicators.kdj?.J, 2) }}
-                </NDescriptionsItem>
+                <NDescriptionsItem label="K">{{ fmt(indicators.kdj?.K, 2) }}</NDescriptionsItem>
+                <NDescriptionsItem label="D">{{ fmt(indicators.kdj?.D, 2) }}</NDescriptionsItem>
+                <NDescriptionsItem label="J">{{ fmt(indicators.kdj?.J, 2) }}</NDescriptionsItem>
               </NDescriptions>
               <div class="indicator-signal-row">
                 <span class="signal-label">信号:</span>
@@ -525,26 +457,17 @@ async function onSave() {
             </div>
           </NGridItem>
 
-          <!-- BOLL -->
           <NGridItem span="1 m:1 l:1">
             <div class="indicator-card">
               <div class="indicator-card-title">BOLL 布林带</div>
               <NDescriptions :column="1" label-placement="left" size="small" bordered>
-                <NDescriptionsItem label="上轨">
-                  {{ fmt(indicators.bollinger?.upper) }}
-                </NDescriptionsItem>
-                <NDescriptionsItem label="中轨">
-                  {{ fmt(indicators.bollinger?.middle) }}
-                </NDescriptionsItem>
-                <NDescriptionsItem label="下轨">
-                  {{ fmt(indicators.bollinger?.lower) }}
-                </NDescriptionsItem>
+                <NDescriptionsItem label="上轨">{{ fmt(indicators.bollinger?.upper) }}</NDescriptionsItem>
+                <NDescriptionsItem label="中轨">{{ fmt(indicators.bollinger?.middle) }}</NDescriptionsItem>
+                <NDescriptionsItem label="下轨">{{ fmt(indicators.bollinger?.lower) }}</NDescriptionsItem>
               </NDescriptions>
               <div class="indicator-signal-row">
                 <span class="signal-label">位置:</span>
-                <NTag size="small" round type="default">
-                  {{ bollPosition }}
-                </NTag>
+                <NTag size="small" round type="default">{{ bollPosition }}</NTag>
                 <NTag :type="bollSqueeze === '收窄' ? 'warning' : 'default'" size="small" round>
                   {{ bollSqueeze }}
                 </NTag>
@@ -552,7 +475,6 @@ async function onSave() {
             </div>
           </NGridItem>
 
-          <!-- Volume -->
           <NGridItem span="1 m:1 l:1">
             <div class="indicator-card">
               <div class="indicator-card-title">成交量</div>
@@ -571,9 +493,7 @@ async function onSave() {
                       : '--'
                   }}
                 </NDescriptionsItem>
-                <NDescriptionsItem label="量比">
-                  {{ fmt(indicators.volume_analysis?.volume_ratio, 2) }}
-                </NDescriptionsItem>
+                <NDescriptionsItem label="量比">{{ fmt(indicators.volume_analysis?.volume_ratio, 2) }}</NDescriptionsItem>
               </NDescriptions>
               <div class="indicator-signal-row">
                 <span class="signal-label">信号:</span>
@@ -594,20 +514,16 @@ async function onSave() {
             </div>
           </NGridItem>
 
-          <!-- ATR -->
           <NGridItem span="1 m:1 l:1">
             <div class="indicator-card">
               <div class="indicator-card-title">ATR 波动率</div>
               <NDescriptions :column="1" label-placement="left" size="small" bordered>
-                <NDescriptionsItem label="ATR">
-                  {{ fmt(indicators.atr?.ATR) }}
-                </NDescriptionsItem>
+                <NDescriptionsItem label="ATR">{{ fmt(indicators.atr?.ATR) }}</NDescriptionsItem>
                 <NDescriptionsItem label="ATR%"> {{ fmt(indicators.atr?.ATR_percent, 2) }}% </NDescriptionsItem>
               </NDescriptions>
             </div>
           </NGridItem>
 
-          <!-- OBV -->
           <NGridItem span="1 m:1 l:1">
             <div class="indicator-card">
               <div class="indicator-card-title">OBV 能量潮</div>
@@ -629,14 +545,11 @@ async function onSave() {
             </div>
           </NGridItem>
 
-          <!-- CCI -->
           <NGridItem span="1 m:1 l:1">
             <div class="indicator-card">
               <div class="indicator-card-title">CCI 顺势指标</div>
               <NDescriptions :column="1" label-placement="left" size="small" bordered>
-                <NDescriptionsItem label="CCI">
-                  {{ fmt(indicators.cci?.CCI, 2) }}
-                </NDescriptionsItem>
+                <NDescriptionsItem label="CCI">{{ fmt(indicators.cci?.CCI, 2) }}</NDescriptionsItem>
               </NDescriptions>
               <div class="indicator-signal-row">
                 <span class="signal-label">状态:</span>
@@ -657,14 +570,11 @@ async function onSave() {
             </div>
           </NGridItem>
 
-          <!-- WR -->
           <NGridItem span="1 m:1 l:1">
             <div class="indicator-card">
               <div class="indicator-card-title">WR 威廉指标</div>
               <NDescriptions :column="1" label-placement="left" size="small" bordered>
-                <NDescriptionsItem label="WR">
-                  {{ fmt(indicators.wr?.WR, 2) }}
-                </NDescriptionsItem>
+                <NDescriptionsItem label="WR">{{ fmt(indicators.wr?.WR, 2) }}</NDescriptionsItem>
               </NDescriptions>
               <div class="indicator-signal-row">
                 <span class="signal-label">状态:</span>
@@ -685,10 +595,12 @@ async function onSave() {
             </div>
           </NGridItem>
         </NGrid>
-      </NCard>
+      </div>
 
-      <!-- Key Levels -->
-      <NCard title="关键价位" :bordered="false" class="section-card">
+      <div class="content-section">
+        <div class="section-header">
+          <h2 class="section-title">关键价位</h2>
+        </div>
         <NGrid :x-gap="24" :y-gap="16" responsive="screen" item-responsive>
           <NGridItem span="1 m:1 l:1">
             <div class="levels-section">
@@ -715,34 +627,82 @@ async function onSave() {
             </div>
           </NGridItem>
         </NGrid>
-      </NCard>
+      </div>
     </template>
 
-    <!-- ==================== Empty State ==================== -->
-    <NCard v-if="!result && !loading && !error" :bordered="false" class="empty-card">
-      <NEmpty description="请输入股票代码开始分析" />
-    </NCard>
+    <div v-if="!result && !loading && !error" class="content-section">
+      <div class="empty-state">
+        <NEmpty description="请输入股票代码开始分析" />
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .analysis-page {
-  max-width: 1200px;
+  max-width: 1300px;
   margin: 0 auto;
-  padding: 16px;
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.page-header {
+  text-align: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.page-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.02em;
+}
+
+.page-subtitle {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+  font-weight: 400;
+}
+
+.content-section {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #f3f4f6;
+  padding: 24px;
+}
+
+.search-bar {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-/* ---------- Search Card ---------- */
-.search-card {
-  position: sticky;
-  top: 0;
-  z-index: 10;
+.search-input-group {
+  max-width: 600px;
+  margin: 0 auto;
 }
 
-/* ---------- Loading ---------- */
+.code-search-input {
+  min-width: 200px;
+}
+
+.search-button {
+  font-weight: 500;
+}
+
+.search-options {
+  justify-content: center;
+}
+
+.option-select {
+  width: 120px;
+}
+
 .loading-wrapper {
   display: flex;
   flex-direction: column;
@@ -753,21 +713,25 @@ async function onSave() {
 }
 
 .loading-text {
-  color: var(--text-color-3, #999);
+  color: #6b7280;
   font-size: 14px;
 }
 
-/* ---------- Error ---------- */
 .error-alert {
   margin-top: 8px;
 }
 
-/* ---------- Section Card ---------- */
-.section-card {
-  margin-bottom: 0;
+.section-header {
+  margin-bottom: 20px;
 }
 
-/* ---------- Stock Header ---------- */
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
 .stock-header {
   display: flex;
   justify-content: space-between;
@@ -785,13 +749,17 @@ async function onSave() {
 .stock-name-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .stock-name {
   font-size: 22px;
   font-weight: 700;
-  color: var(--text-color-1, #fff);
+  color: #111827;
+}
+
+.code-tag {
+  font-size: 12px;
 }
 
 .price-row {
@@ -804,6 +772,7 @@ async function onSave() {
   font-size: 36px;
   font-weight: 700;
   line-height: 1.1;
+  font-variant-numeric: tabular-nums;
 }
 
 .change-pct {
@@ -812,15 +781,15 @@ async function onSave() {
 }
 
 .update-time {
-  font-size: 12px;
-  color: var(--text-color-3, #999);
+  font-size: 13px;
+  color: #6b7280;
 }
 
 .stock-header-right {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 10px;
+  gap: 12px;
 }
 
 .score-section {
@@ -829,19 +798,16 @@ async function onSave() {
   gap: 12px;
 }
 
-.score-statistic {
-  --score-color: #999;
-}
-
-.score-statistic :deep(.n-statistic-value__content) {
-  color: var(--score-color);
-  font-size: 32px;
+.score-value {
+  font-size: 36px;
   font-weight: 700;
+  line-height: 1;
 }
 
 .score-label {
   font-size: 13px;
-  color: var(--text-color-3, #999);
+  color: #6b7280;
+  font-weight: 500;
 }
 
 .trend-tag {
@@ -849,80 +815,83 @@ async function onSave() {
 }
 
 .recommendation {
-  font-size: 13px;
-  color: var(--text-color-2, #bbb);
-  max-width: 260px;
+  font-size: 14px;
+  color: #4b5563;
+  max-width: 280px;
   text-align: right;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
-/* ---------- Summary ---------- */
+.save-button {
+  font-weight: 500;
+}
+
 .summary-text {
   font-size: 14px;
   line-height: 1.8;
-  color: var(--text-color-2, #ccc);
+  color: #4b5563;
   margin: 0;
   white-space: pre-wrap;
 }
 
-/* ---------- Indicator Cards ---------- */
 .indicator-card {
-  background: var(--card-color-2, rgba(255, 255, 255, 0.03));
-  border: 1px solid var(--border-color-2, rgba(255, 255, 255, 0.08));
-  border-radius: 8px;
-  padding: 14px;
+  background: #f9fafb;
+  border: 1px solid #f3f4f6;
+  border-radius: 10px;
+  padding: 16px;
   height: 100%;
 }
 
 .indicator-card-title {
   font-size: 15px;
   font-weight: 600;
-  color: var(--text-color-1, #fff);
-  margin-bottom: 10px;
+  color: #111827;
+  margin-bottom: 12px;
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--border-color-2, rgba(255, 255, 255, 0.08));
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .indicator-signal-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border-color-2, rgba(255, 255, 255, 0.06));
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #e5e7eb;
 }
 
 .signal-label {
-  font-size: 12px;
-  color: var(--text-color-3, #999);
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 500;
 }
 
 .divergence-text {
-  font-size: 12px;
-  color: var(--warning-color, #ff9500);
+  font-size: 13px;
+  color: #ea580c;
+  font-weight: 500;
 }
 
-/* ---------- Key Levels ---------- */
 .levels-section {
-  padding: 12px 0;
+  padding: 8px 0;
 }
 
 .levels-title {
   font-size: 15px;
   font-weight: 600;
-  margin-bottom: 10px;
-  padding-bottom: 6px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
   border-bottom: 2px solid;
 }
 
 .support-title {
-  color: #26a69a;
-  border-color: #26a69a;
+  color: #059669;
+  border-color: #059669;
 }
 
 .resistance-title {
-  color: #ef5350;
-  border-color: #ef5350;
+  color: #dc2626;
+  border-color: #dc2626;
 }
 
 .level-item {
@@ -935,42 +904,44 @@ async function onSave() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 22px;
+  width: 32px;
+  height: 24px;
   border-radius: 4px;
   font-size: 12px;
   font-weight: 600;
   color: #fff;
-  background: var(--primary-color, #5b8ff9);
+  background: #2563eb;
 }
 
 .level-value {
   font-size: 15px;
   font-weight: 500;
-  color: var(--text-color-1, #fff);
+  color: #111827;
   font-variant-numeric: tabular-nums;
 }
 
 .level-empty {
   font-size: 13px;
-  color: var(--text-color-3, #999);
+  color: #6b7280;
 }
 
-/* ---------- Empty State ---------- */
-.empty-card {
-  padding: 120px 0;
+.empty-state {
+  padding: 60px 0;
 }
 
-/* ---------- Responsive ---------- */
 @media (max-width: 768px) {
   .analysis-page {
-    padding: 8px;
-    gap: 10px;
+    padding: 20px 16px;
+    gap: 20px;
+  }
+
+  .page-title {
+    font-size: 24px;
   }
 
   .stock-header {
     flex-direction: column;
-    gap: 16px;
+    gap: 20px;
   }
 
   .stock-header-right {
@@ -985,8 +956,8 @@ async function onSave() {
     font-size: 28px;
   }
 
-  .score-statistic :deep(.n-statistic-value__content) {
-    font-size: 26px;
+  .score-value {
+    font-size: 28px;
   }
 }
 </style>

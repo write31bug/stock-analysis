@@ -2,7 +2,6 @@
 import { ref, h, onMounted } from 'vue'
 import {
   NCard,
-  NPageHeader,
   NDataTable,
   NForm,
   NFormItem,
@@ -20,11 +19,7 @@ import {
 import { getAlerts, createAlert, deleteAlert, checkAlerts } from '../api'
 import type { PriceAlert } from '../types'
 
-// ---------- Message ----------
-
 const message = useMessage()
-
-// ---------- Form State ----------
 
 const formCode = ref('')
 const formName = ref('')
@@ -38,13 +33,9 @@ const conditionTypeOptions = [
   { label: '跌幅低于', value: 'pct_change_below' },
 ]
 
-// ---------- Table State ----------
-
 const loading = ref(false)
 const alerts = ref<PriceAlert[]>([])
 const checking = ref(false)
-
-// ---------- Condition Label Map ----------
 
 const conditionLabelMap: Record<string, string> = {
   above: '价格高于',
@@ -52,8 +43,6 @@ const conditionLabelMap: Record<string, string> = {
   pct_change_above: '涨幅高于',
   pct_change_below: '跌幅低于',
 }
-
-// ---------- Fetch Alerts ----------
 
 async function fetchAlerts() {
   loading.value = true
@@ -65,8 +54,6 @@ async function fetchAlerts() {
     loading.value = false
   }
 }
-
-// ---------- Create Alert ----------
 
 async function handleCreateAlert() {
   const code = formCode.value.trim()
@@ -97,8 +84,6 @@ async function handleCreateAlert() {
   }
 }
 
-// ---------- Delete Alert ----------
-
 async function handleDeleteAlert(id: number) {
   try {
     await deleteAlert(id)
@@ -108,8 +93,6 @@ async function handleDeleteAlert(id: number) {
     message.error('删除失败')
   }
 }
-
-// ---------- Check Alerts ----------
 
 async function handleCheckAlerts() {
   checking.value = true
@@ -129,14 +112,10 @@ async function handleCheckAlerts() {
   }
 }
 
-// ---------- Format Time ----------
-
 function formatTime(time: string | null): string {
   if (!time) return '--'
   return time.replace('T', ' ').slice(0, 19)
 }
-
-// ---------- Table Columns ----------
 
 const columns = [
   {
@@ -207,7 +186,7 @@ const columns = [
     key: 'created_at',
     width: 170,
     render(row: PriceAlert) {
-      return h('span', { style: { fontSize: '13px', color: '#bbb' } }, formatTime(row.created_at))
+      return h('span', { style: { fontSize: '13px', color: '#6b7280' } }, formatTime(row.created_at))
     },
   },
   {
@@ -228,8 +207,6 @@ const columns = [
   },
 ]
 
-// ---------- Lifecycle ----------
-
 onMounted(() => {
   fetchAlerts()
 })
@@ -237,20 +214,22 @@ onMounted(() => {
 
 <template>
   <div class="alerts-page">
-    <!-- ==================== Page Header ==================== -->
-    <NCard :bordered="false" class="header-card">
-      <NPageHeader title="价格预警" subtitle="设置价格条件，自动监控预警" />
-    </NCard>
+    <div class="page-header">
+      <h1 class="page-title">价格预警</h1>
+      <p class="page-subtitle">设置价格条件，自动监控预警</p>
+    </div>
 
-    <!-- ==================== Create Alert Form ==================== -->
-    <NCard title="新建预警" :bordered="false">
-      <NForm label-placement="left" label-width="80" :show-feedback="false" inline>
+    <div class="content-section">
+      <div class="section-header">
+        <h2 class="section-title">新建预警</h2>
+      </div>
+      <NForm label-placement="left" label-width="80" :show-feedback="false" inline class="alert-form">
         <NFormItem label="股票代码">
           <NInput
             v-model:value="formCode"
             placeholder="如 600519"
             clearable
-            style="width: 140px"
+            class="form-input"
           />
         </NFormItem>
         <NFormItem label="名称">
@@ -258,14 +237,14 @@ onMounted(() => {
             v-model:value="formName"
             placeholder="可选"
             clearable
-            style="width: 140px"
+            class="form-input"
           />
         </NFormItem>
         <NFormItem label="条件类型">
           <NSelect
             v-model:value="formConditionType"
             :options="conditionTypeOptions"
-            style="width: 140px"
+            class="form-select"
           />
         </NFormItem>
         <NFormItem label="目标值">
@@ -274,72 +253,154 @@ onMounted(() => {
             placeholder="目标值"
             type="number"
             clearable
-            style="width: 120px"
+            class="form-input"
           />
         </NFormItem>
         <NFormItem label=" ">
-          <NButton type="primary" @click="handleCreateAlert"> 添加预警 </NButton>
+          <NButton type="primary" @click="handleCreateAlert" class="add-button">添加预警</NButton>
         </NFormItem>
       </NForm>
-    </NCard>
+    </div>
 
-    <!-- ==================== Alert List ==================== -->
-    <NCard title="预警列表" :bordered="false">
-      <NSpace vertical :size="12">
-        <NSpace :size="8" align="center">
-          <NButton
-            type="warning"
-            :loading="checking"
-            :disabled="alerts.length === 0"
-            @click="handleCheckAlerts"
-          >
-            检查预警
-          </NButton>
-        </NSpace>
+    <div class="content-section">
+      <div class="section-header">
+        <h2 class="section-title">预警列表</h2>
+        <NButton
+          type="warning"
+          :loading="checking"
+          :disabled="alerts.length === 0"
+          @click="handleCheckAlerts"
+          class="check-button"
+        >
+          检查预警
+        </NButton>
+      </div>
 
-        <NSpin :show="loading">
-          <NDataTable
-            v-if="alerts.length > 0"
-            :columns="columns"
-            :data="alerts"
-            :bordered="false"
-            :single-line="false"
-            size="small"
-            :row-key="(row: PriceAlert) => row.id"
-            :scroll-x="920"
-          />
-          <NEmpty v-else description="暂无预警，请添加" style="padding: 32px 0" />
-        </NSpin>
-      </NSpace>
-    </NCard>
+      <NSpin :show="loading">
+        <NDataTable
+          v-if="alerts.length > 0"
+          :columns="columns"
+          :data="alerts"
+          :bordered="false"
+          :single-line="false"
+          size="small"
+          :row-key="(row: PriceAlert) => row.id"
+          :scroll-x="920"
+          class="alert-table"
+        />
+        <div v-else class="empty-state">
+          <NEmpty description="暂无预警，请添加" />
+        </div>
+      </NSpin>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .alerts-page {
-  max-width: 1200px;
+  max-width: 1300px;
   margin: 0 auto;
-  padding: 16px;
+  padding: 32px 24px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 24px;
 }
 
-/* ---------- Header ---------- */
-.header-card :deep(.n-page-header) {
-  padding: 0;
+.page-header {
+  text-align: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
-.header-card :deep(.n-page-header .n-page-header__title) {
-  font-size: 24px;
+.page-title {
+  font-size: 32px;
   font-weight: 700;
+  color: #111827;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.02em;
 }
 
-/* ---------- Responsive ---------- */
+.page-subtitle {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+  font-weight: 400;
+}
+
+.content-section {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #f3f4f6;
+  padding: 24px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.alert-form {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.form-input {
+  width: 140px;
+}
+
+.form-select {
+  width: 140px;
+}
+
+.add-button {
+  font-weight: 500;
+}
+
+.check-button {
+  font-weight: 500;
+}
+
+.alert-table {
+  border-radius: 8px;
+}
+
+.empty-state {
+  padding: 48px 0;
+}
+
 @media (max-width: 768px) {
   .alerts-page {
-    padding: 8px;
-    gap: 10px;
+    padding: 20px 16px;
+    gap: 20px;
+  }
+
+  .page-title {
+    font-size: 24px;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .alert-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-input,
+  .form-select {
+    width: 100% !important;
   }
 }
 </style>
