@@ -21,6 +21,7 @@ from ..schemas import (
     OHLCVItem,
     SeriesPoint,
 )
+from ..services.cache_service import cache_service
 
 router = APIRouter(tags=["analyze"])
 
@@ -171,6 +172,14 @@ async def analyze_stock(
     test: bool = Query(False),
 ):
     """单股技术分析"""
+    # 生成缓存键
+    cache_key = f"analyze:{code}:{market}:{asset_type}:{days}:{test}"
+    
+    # 尝试从缓存获取
+    cached_result = cache_service.get(cache_key)
+    if cached_result:
+        return cached_result
+
     if test:
         result = await asyncio.to_thread(analyzer.analyze_with_mock_data, code, market, asset_type, days, return_df=True)
     else:
@@ -190,6 +199,9 @@ async def analyze_stock(
     result["ohlcv"] = [item.model_dump() for item in ohlcv]
     result["indicator_series"] = {k: [p.model_dump() for p in v] for k, v in indicator_series.items()}
 
+    # 存入缓存
+    cache_service.set(cache_key, result)
+
     return result
 
 
@@ -205,11 +217,15 @@ async def submit_batch(req: BatchSubmitRequest):
         raise HTTPException(status_code=400, detail="代码数量不能超过100个")
     
     # 验证每个代码的格式
+    import re
     for code in req.codes:
         if not code or not code.strip():
             raise HTTPException(status_code=400, detail="代码不能为空")
         if len(code) > 20:
             raise HTTPException(status_code=400, detail=f"代码 {code} 长度不能超过20个字符")
+        # 验证代码格式（只允许字母、数字和点）
+        if not re.match(r"^[A-Za-z0-9.]+$", code):
+            raise HTTPException(status_code=400, detail=f"代码 {code} 只能包含字母、数字和点")
     
     task_id = str(uuid.uuid4())[:8]
     with _batch_lock:

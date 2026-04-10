@@ -10,6 +10,7 @@ from fastapi import APIRouter, File, HTTPException, Query, UploadFile, Depends
 from pydantic import BaseModel
 
 from ..services.config_service import load_config, save_config
+from ..services.cache_service import cache_service
 
 from ..schemas import (
     ImportResponse,
@@ -82,19 +83,43 @@ def _normalize_watchlist(raw: list) -> List[WatchlistItem]:
 @router.get("/watchlist", response_model=List[WatchlistItem])
 async def get_watchlist(group: str = Query(None)):
     """获取自选股列表，可按分组筛选"""
+    # 生成缓存键
+    cache_key = f"watchlist:{group or 'all'}"
+    
+    # 尝试从缓存获取
+    cached_items = cache_service.get(cache_key)
+    if cached_items:
+        return cached_items
+    
     config = load_config()
     items = _normalize_watchlist(config.get("watchlist", []))
     if group is not None:
         items = [item for item in items if item.group == group]
+    
+    # 存入缓存
+    cache_service.set(cache_key, items)
+    
     return items
 
 
 @router.get("/watchlist/groups", response_model=List[str])
 async def get_watchlist_groups():
     """获取所有分组名称"""
+    # 生成缓存键
+    cache_key = "watchlist:groups"
+    
+    # 尝试从缓存获取
+    cached_groups = cache_service.get(cache_key)
+    if cached_groups:
+        return cached_groups
+    
     config = load_config()
     items = _normalize_watchlist(config.get("watchlist", []))
     groups = sorted(set(item.group for item in items))
+    
+    # 存入缓存
+    cache_service.set(cache_key, groups)
+    
     return groups
 
 
@@ -134,6 +159,12 @@ async def add_to_watchlist(item: WatchlistItem):
     watchlist.append({"code": item.code, "name": item.name, "group": group})
     config["watchlist"] = watchlist
     save_config(config)
+    
+    # 清除相关缓存
+    cache_service.delete("watchlist:all")
+    cache_service.delete("watchlist:groups")
+    cache_service.delete(f"watchlist:{group}")
+    
     return WatchlistResponse(
         message="添加成功",
         watchlist=_normalize_watchlist(watchlist),
@@ -200,6 +231,17 @@ async def remove_from_watchlist(code: str):
 
     config["watchlist"] = watchlist
     save_config(config)
+    
+    # 清除所有缓存
+    cache_service.delete("watchlist:all")
+    cache_service.delete("watchlist:groups")
+    # 清除所有分组的缓存
+    all_groups = set()
+    for item in _normalize_watchlist(watchlist):
+        all_groups.add(item.group)
+    for group in all_groups:
+        cache_service.delete(f"watchlist:{group}")
+    
     return WatchlistResponse(
         message="删除成功",
         watchlist=_normalize_watchlist(watchlist),
@@ -286,6 +328,16 @@ async def import_watchlist(
 
     config["watchlist"] = watchlist
     save_config(config)
+    
+    # 清除所有缓存
+    cache_service.delete("watchlist:all")
+    cache_service.delete("watchlist:groups")
+    # 清除所有分组的缓存
+    all_groups = set()
+    for item in _normalize_watchlist(watchlist):
+        all_groups.add(item.group)
+    for group in all_groups:
+        cache_service.delete(f"watchlist:{group}")
 
     return ImportResponse(
         message=f"导入完成：新增 {added}，已存在 {existed}，跳过 {skipped}",

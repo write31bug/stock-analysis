@@ -169,3 +169,57 @@ class TestBatchAnalyze:
 
         assert data["status"] == "completed"
         assert data["progress"] == 1
+
+
+class TestAnalyzeEdgeCases:
+    """分析接口边界情况测试"""
+
+    def test_invalid_stock_code(self, client):
+        """测试无效股票代码（测试模式下会返回模拟数据）"""
+        resp = client.get("/api/v1/analyze/invalid_code", params={"test": "true"})
+        assert resp.status_code == 200
+        assert resp.json()["stock_info"]["code"] == "invalid_code"
+        assert resp.json()["stock_info"]["is_mock_data"] is True
+
+    def test_empty_stock_code(self, client):
+        """测试空股票代码"""
+        resp = client.get("/api/v1/analyze/", params={"test": "true"})
+        assert resp.status_code == 404
+
+    def test_negative_days_param(self, client):
+        """测试负数天数参数"""
+        resp = client.get("/api/v1/analyze/600519", params={"test": "true", "days": "-1"})
+        assert resp.status_code == 422
+
+    def test_zero_days_param(self, client):
+        """测试零天数参数"""
+        resp = client.get("/api/v1/analyze/600519", params={"test": "true", "days": "0"})
+        assert resp.status_code == 422
+
+    def test_large_days_param(self, client):
+        """测试过大天数参数"""
+        resp = client.get("/api/v1/analyze/600519", params={"test": "true", "days": "10000"})
+        assert resp.status_code == 422
+
+    def test_empty_batch_codes(self, client):
+        """测试空批量代码列表"""
+        resp = client.post("/api/v1/batch", json={
+            "codes": [], "days": 60, "test": True,
+        })
+        assert resp.status_code == 422
+
+    def test_large_batch_codes(self, client):
+        """测试过大批量代码列表"""
+        # 创建一个包含101个代码的列表（超过100个限制）
+        large_codes = [f"{i:06d}" for i in range(101)]
+        resp = client.post("/api/v1/batch", json={
+            "codes": large_codes, "days": 60, "test": True,
+        })
+        assert resp.status_code == 422
+
+    def test_invalid_batch_days(self, client):
+        """测试无效批量分析天数"""
+        resp = client.post("/api/v1/batch", json={
+            "codes": ["600519"], "days": -1, "test": True,
+        })
+        assert resp.status_code == 422

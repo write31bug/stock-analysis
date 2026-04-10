@@ -109,6 +109,14 @@ class StockAnalyzer:
         kdj = self.indicators.calculate_kdj(df)
         atr = self.indicators.calculate_atr(df)
         volume = self.indicators.calculate_volume(df)
+        sar = self.indicators.calculate_sar(df)
+        cci = self.indicators.calculate_cci(df)
+        roc = self.indicators.calculate_roc(df)
+        wr = self.indicators.calculate_wr(df)
+        sar = self.indicators.calculate_sar(df)
+        cci = self.indicators.calculate_cci(df)
+        roc = self.indicators.calculate_roc(df)
+        wr = self.indicators.calculate_wr(df)
 
         # 布林带收窄检测
         if bollinger.get("bb_width") and len(df) >= 20:
@@ -132,13 +140,17 @@ class StockAnalyzer:
                 "kdj": kdj,
                 "atr": atr,
                 "volume_analysis": volume,
+                "sar": sar,
+                "cci": cci,
+                "roc": roc,
+                "wr": wr,
             },
             "key_levels": levels,
             "analysis": {
                 "score": score,
                 "trend": trend,
                 "recommendation": recommendation,
-                "summary": self._generate_summary(stock_info, ma, macd, rsi, bollinger, score, kdj=kdj, volume=volume),
+                "summary": self._generate_summary(stock_info, ma, macd, rsi, bollinger, score, kdj=kdj, volume=volume, sar=sar, cci=cci, roc=roc, wr=wr),
             },
         }
 
@@ -327,6 +339,10 @@ class StockAnalyzer:
         kdj = self.indicators.calculate_kdj(df)
         atr = self.indicators.calculate_atr(df)
         volume = self.indicators.calculate_volume(df)
+        sar = self.indicators.calculate_sar(df)
+        cci = self.indicators.calculate_cci(df)
+        roc = self.indicators.calculate_roc(df)
+        wr = self.indicators.calculate_wr(df)
 
         levels = self.levels_finder.find_levels(df, asset_type=asset_type)
         score, trend, recommendation = Scorer.calculate_score(df, ma, macd, rsi, bollinger, kdj=kdj, volume=volume)
@@ -341,13 +357,17 @@ class StockAnalyzer:
                 "kdj": kdj,
                 "atr": atr,
                 "volume_analysis": volume,
+                "sar": sar,
+                "cci": cci,
+                "roc": roc,
+                "wr": wr,
             },
             "key_levels": levels,
             "analysis": {
                 "score": score,
                 "trend": trend,
                 "recommendation": recommendation,
-                "summary": self._generate_summary(stock_info, ma, macd, rsi, bollinger, score, kdj=kdj, volume=volume),
+                "summary": self._generate_summary(stock_info, ma, macd, rsi, bollinger, score, kdj=kdj, volume=volume, sar=sar, cci=cci, roc=roc, wr=wr),
             },
         }
         if return_df:
@@ -364,6 +384,10 @@ class StockAnalyzer:
         score: int,
         kdj: Optional[Dict] = None,
         volume: Optional[Dict] = None,
+        sar: Optional[Dict] = None,
+        cci: Optional[Dict] = None,
+        roc: Optional[Dict] = None,
+        wr: Optional[Dict] = None,
     ) -> str:
         """生成中文分析摘要"""
         parts = []
@@ -399,6 +423,18 @@ class StockAnalyzer:
 
         if kdj and kdj.get("signal") and kdj["signal"] in ("超买", "超卖"):
             parts.append(f"KDJ{kdj['signal']}")
+
+        if sar and sar.get("signal") and sar["signal"] != "数据不足":
+            parts.append(f"SAR{sar['signal']}")
+
+        if cci and cci.get("signal") and cci["signal"] != "数据不足":
+            parts.append(f"CCI{cci['signal']}")
+
+        if roc and roc.get("signal") and roc["signal"] != "数据不足":
+            parts.append(f"ROC{roc['signal']}")
+
+        if wr and wr.get("signal") and wr["signal"] != "数据不足":
+            parts.append(f"WR{wr['signal']}")
 
         if (
             volume

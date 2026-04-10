@@ -82,8 +82,8 @@ const chartOption = computed(() => {
   })
 
   return {
-    animation: true,
-    animationDuration: 500,
+    animation: false, // 关闭动画以提高性能
+    animationDuration: 0,
     tooltip: {
       trigger: 'axis',
       axisPointer: {
@@ -257,21 +257,8 @@ const chartOption = computed(() => {
 })
 
 // ---------- 响应式更新 ----------
-watch(
-  () => props.ohlcv,
-  () => {
-    // chartOption 是 computed，VChart 会自动响应变化
-  },
-  { deep: true },
-)
-
-watch(
-  () => props.maSeries,
-  () => {
-    // chartOption 是 computed，VChart 会自动响应变化
-  },
-  { deep: true },
-)
+// 移除深度监听，因为chartOption是computed，会自动响应变化
+// 当数据变化时，computed会重新计算，VChart会自动更新
 </script>
 
 <template>

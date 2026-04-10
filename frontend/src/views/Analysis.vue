@@ -55,13 +55,34 @@ const daysOptions = [
   { label: '250天', value: 250 },
 ]
 
+function validateStockCode(code: string): string | null {
+  const trimmedCode = code.trim()
+  if (!trimmedCode) {
+    return '请输入股票代码'
+  }
+  
+  // 检查代码长度
+  if (trimmedCode.length > 20) {
+    return '股票代码长度不能超过20个字符'
+  }
+  
+  // 检查代码格式
+  const validPattern = /^[A-Za-z0-9.]+$/
+  if (!validPattern.test(trimmedCode)) {
+    return '股票代码只能包含字母、数字和点'
+  }
+  
+  return null
+}
+
 async function handleAnalyze() {
-  const code = searchCode.value.trim()
-  if (!code) {
-    message.warning('请输入股票代码')
+  const code = searchCode.value
+  const error = validateStockCode(code)
+  if (error) {
+    message.warning(error)
     return
   }
-  await store.analyze(code, market.value, assetType.value, days.value)
+  await store.analyze(code.trim(), market.value, assetType.value, days.value)
 }
 
 onMounted(() => {

@@ -13,6 +13,11 @@ vi.mock('axios', () => ({
       get: mockGet,
       post: mockPost,
       delete: mockDelete,
+      interceptors: {
+        response: {
+          use: vi.fn()
+        }
+      }
     }),
   },
 }))

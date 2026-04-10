@@ -269,3 +269,137 @@ class TechnicalIndicators:
         result["volume_ratio"] = volume_ratio
         result["volume_signal"] = vol_signal
         return result
+
+    @staticmethod
+    def calculate_sar(df: pd.DataFrame, acceleration: float = 0.02, maximum: float = 0.2) -> Dict[str, Any]:
+        """计算 SAR 抛物线转向指标"""
+        if len(df) < 2:
+            return {"SAR": None, "signal": "数据不足"}
+
+        sar = []
+        ep = df["high"].iloc[0]
+        af = acceleration
+        trend = 1  # 1: 上升趋势, -1: 下降趋势
+
+        # 初始化 SAR
+        sar.append(df["low"].iloc[0])
+
+        for i in range(1, len(df)):
+            current_sar = sar[-1] + af * (ep - sar[-1])
+
+            if trend == 1:
+                current_sar = min(current_sar, df["low"].iloc[i-1], df["low"].iloc[i])
+                if df["high"].iloc[i] > ep:
+                    ep = df["high"].iloc[i]
+                    af = min(af + acceleration, maximum)
+                if df["low"].iloc[i] < current_sar:
+                    trend = -1
+                    current_sar = ep
+                    ep = df["low"].iloc[i]
+                    af = acceleration
+            else:
+                current_sar = max(current_sar, df["high"].iloc[i-1], df["high"].iloc[i])
+                if df["low"].iloc[i] < ep:
+                    ep = df["low"].iloc[i]
+                    af = min(af + acceleration, maximum)
+                if df["high"].iloc[i] > current_sar:
+                    trend = 1
+                    current_sar = ep
+                    ep = df["high"].iloc[i]
+                    af = acceleration
+
+            sar.append(current_sar)
+
+        current_price = df["close"].iloc[-1]
+        sar_value = sar[-1]
+        signal = "买入" if current_price > sar_value else "卖出"
+
+        return {
+            "SAR": round(float(sar_value), 4),
+            "signal": signal,
+            "trend": "上升" if trend == 1 else "下降"
+        }
+
+    @staticmethod
+    def calculate_cci(df: pd.DataFrame, period: int = 14) -> Dict[str, Any]:
+        """计算 CCI 顺势指标"""
+        if len(df) < period:
+            return {"CCI": None, "signal": "数据不足"}
+
+        # 计算典型价格
+        typical_price = (df["high"] + df["low"] + df["close"]) / 3
+        # 计算移动平均
+        sma = typical_price.rolling(window=period).mean()
+        # 计算平均绝对偏差
+        mad = abs(typical_price - sma).rolling(window=period).mean()
+        # 计算 CCI
+        cci = (typical_price - sma) / (0.015 * mad)
+
+        cci_value = cci.iloc[-1]
+        if pd.isna(cci_value):
+            return {"CCI": None, "signal": "数据不足"}
+
+        # 信号判断
+        if cci_value > 100:
+            signal = "超买"
+        elif cci_value < -100:
+            signal = "超卖"
+        else:
+            signal = "中性"
+
+        return {
+            "CCI": round(float(cci_value), 2),
+            "signal": signal
+        }
+
+    @staticmethod
+    def calculate_roc(df: pd.DataFrame, period: int = 12) -> Dict[str, Any]:
+        """计算 ROC 变动率指标"""
+        if len(df) < period + 1:
+            return {"ROC": None, "signal": "数据不足"}
+
+        roc = ((df["close"] / df["close"].shift(period)) - 1) * 100
+        roc_value = roc.iloc[-1]
+
+        if pd.isna(roc_value):
+            return {"ROC": None, "signal": "数据不足"}
+
+        # 信号判断
+        if roc_value > 0:
+            signal = "上涨"
+        elif roc_value < 0:
+            signal = "下跌"
+        else:
+            signal = "持平"
+
+        return {
+            "ROC": round(float(roc_value), 2),
+            "signal": signal
+        }
+
+    @staticmethod
+    def calculate_wr(df: pd.DataFrame, period: int = 14) -> Dict[str, Any]:
+        """计算 WR 威廉指标"""
+        if len(df) < period:
+            return {"WR": None, "signal": "数据不足"}
+
+        high_max = df["high"].rolling(window=period).max()
+        low_min = df["low"].rolling(window=period).min()
+        wr = ((high_max - df["close"]) / (high_max - low_min)) * 100
+
+        wr_value = wr.iloc[-1]
+        if pd.isna(wr_value):
+            return {"WR": None, "signal": "数据不足"}
+
+        # 信号判断
+        if wr_value < -80:
+            signal = "超买"
+        elif wr_value > -20:
+            signal = "超卖"
+        else:
+            signal = "中性"
+
+        return {
+            "WR": round(float(wr_value), 2),
+            "signal": signal
+        }
