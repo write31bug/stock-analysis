@@ -101,6 +101,18 @@ async def get_watchlist_groups():
 @router.post("/watchlist", response_model=WatchlistResponse, dependencies=[Depends(verify_api_key)])
 async def add_to_watchlist(item: WatchlistItem):
     """添加到自选股（自动判断分组）"""
+    # 验证股票代码
+    if not item.code or not item.code.strip():
+        raise HTTPException(status_code=400, detail="股票代码不能为空")
+    
+    # 验证股票代码格式（只允许字母、数字和点）
+    if not re.match(r"^[A-Za-z0-9.]+$", item.code):
+        raise HTTPException(status_code=400, detail="股票代码只能包含字母、数字和点")
+    
+    # 验证股票代码长度
+    if len(item.code) > 20:
+        raise HTTPException(status_code=400, detail="股票代码长度不能超过20个字符")
+
     config = load_config()
     _ensure_default_groups(config)
     watchlist = config.get("watchlist", [])

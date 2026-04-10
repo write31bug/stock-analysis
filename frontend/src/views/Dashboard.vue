@@ -59,14 +59,28 @@ async function handleAddToWatchlist() {
     message.warning('请输入股票代码')
     return
   }
+  
+  // 验证股票代码格式（只允许字母、数字和点）
+  if (!/^[A-Za-z0-9.]+$/.test(code)) {
+    message.warning('股票代码只能包含字母、数字和点')
+    return
+  }
+  
+  // 验证股票代码长度
+  if (code.length > 20) {
+    message.warning('股票代码长度不能超过20个字符')
+    return
+  }
+  
   try {
     await watchlistStore.add(code, addName.value.trim(), addGroup.value ?? undefined)
     message.success(`已添加 ${code} 到自选股`)
     addCode.value = ''
     addName.value = ''
     addGroup.value = null
-  } catch {
-    message.error('添加失败，请检查代码是否正确')
+  } catch (e: any) {
+    const errorMessage = e.response?.data?.detail || '添加失败，请检查代码是否正确'
+    message.error(errorMessage)
   }
 }
 

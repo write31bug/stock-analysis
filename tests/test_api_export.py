@@ -20,16 +20,16 @@ def client():
 def cleanup_history(client):
     """每个测试前后清理历史记录，保证测试独立性"""
     # 测试前清理
-    client.delete("/api/history")
+    client.delete("/api/v1/history")
     yield
     # 测试后清理
-    client.delete("/api/history")
+    client.delete("/api/v1/history")
 
 
 def _save_test_record(client, code="600519", name="贵州茅台", score=75, trend="上涨"):
     """辅助函数：保存一条测试历史记录"""
     resp = client.post(
-        "/api/history",
+        "/api/v1/history",
         json={
             "stock_info": {
                 "code": code,
@@ -57,17 +57,17 @@ def _save_test_record(client, code="600519", name="贵州茅台", score=75, tren
 
 
 class TestExportHistory:
-    """GET /api/export/history — 导出历史记录 CSV"""
+    """GET /api/v1/export/history — 导出历史记录 CSV"""
 
     def test_export_history_csv_content_type(self, client):
         """导出接口应返回 CSV 内容类型"""
-        resp = client.get("/api/export/history")
+        resp = client.get("/api/v1/export/history")
         assert resp.status_code == 200
         assert "text/csv" in resp.headers["content-type"]
 
     def test_export_history_csv_headers(self, client):
         """CSV 应包含正确的表头"""
-        resp = client.get("/api/export/history")
+        resp = client.get("/api/v1/export/history")
         content = resp.text
         reader = csv.reader(io.StringIO(content))
         headers = next(reader)
@@ -90,7 +90,7 @@ class TestExportHistory:
 
     def test_export_history_empty(self, client):
         """没有记录时 CSV 应只有表头"""
-        resp = client.get("/api/export/history")
+        resp = client.get("/api/v1/export/history")
         content = resp.text
         reader = csv.reader(io.StringIO(content))
         headers = next(reader)
@@ -102,7 +102,7 @@ class TestExportHistory:
         """有记录时 CSV 应包含数据行"""
         _save_test_record(client)
 
-        resp = client.get("/api/export/history")
+        resp = client.get("/api/v1/export/history")
         content = resp.text
         reader = csv.reader(io.StringIO(content))
         next(reader)  # skip headers
@@ -116,7 +116,7 @@ class TestExportHistory:
         _save_test_record(client, code="600519", name="贵州茅台")
         _save_test_record(client, code="000001", name="平安银行")
 
-        resp = client.get("/api/export/history", params={"code": "600519"})
+        resp = client.get("/api/v1/export/history", params={"code": "600519"})
         content = resp.text
         reader = csv.reader(io.StringIO(content))
         next(reader)  # skip headers
@@ -126,7 +126,7 @@ class TestExportHistory:
 
     def test_export_history_content_disposition(self, client):
         """响应应包含 Content-Disposition 头"""
-        resp = client.get("/api/export/history")
+        resp = client.get("/api/v1/export/history")
         assert "content-disposition" in resp.headers
         assert "attachment" in resp.headers["content-disposition"]
         assert "history_" in resp.headers["content-disposition"]
@@ -134,17 +134,17 @@ class TestExportHistory:
 
 
 class TestExportAnalysisCsv:
-    """GET /api/export/csv — 导出分析结果 CSV"""
+    """GET /api/v1/export/csv — 导出分析结果 CSV"""
 
     def test_export_csv_content_type(self, client):
         """导出接口应返回 CSV 内容类型"""
-        resp = client.get("/api/export/csv", params={"codes": "600519"})
+        resp = client.get("/api/v1/export/csv", params={"codes": "600519"})
         assert resp.status_code == 200
         assert "text/csv" in resp.headers["content-type"]
 
     def test_export_csv_headers(self, client):
         """CSV 应包含正确的表头"""
-        resp = client.get("/api/export/csv", params={"codes": "600519"})
+        resp = client.get("/api/v1/export/csv", params={"codes": "600519"})
         content = resp.text
         reader = csv.reader(io.StringIO(content))
         headers = next(reader)
@@ -167,12 +167,12 @@ class TestExportAnalysisCsv:
 
     def test_export_csv_empty_codes(self, client):
         """空代码列表应返回纯文本提示"""
-        resp = client.get("/api/export/csv", params={"codes": ""})
+        resp = client.get("/api/v1/export/csv", params={"codes": ""})
         assert resp.status_code == 200
 
     def test_export_csv_content_disposition(self, client):
         """响应应包含 Content-Disposition 头"""
-        resp = client.get("/api/export/csv", params={"codes": "600519"})
+        resp = client.get("/api/v1/export/csv", params={"codes": "600519"})
         assert "content-disposition" in resp.headers
         assert "attachment" in resp.headers["content-disposition"]
         assert "analysis_" in resp.headers["content-disposition"]
@@ -180,7 +180,7 @@ class TestExportAnalysisCsv:
 
     def test_export_csv_multiple_codes(self, client):
         """多只股票代码导出"""
-        resp = client.get("/api/export/csv", params={"codes": "600519,000001"})
+        resp = client.get("/api/v1/export/csv", params={"codes": "600519,000001"})
         assert resp.status_code == 200
         content = resp.text
         reader = csv.reader(io.StringIO(content))

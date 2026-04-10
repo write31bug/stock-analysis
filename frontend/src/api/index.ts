@@ -3,6 +3,43 @@ import type { AnalysisResult, WatchlistItem, PriceAlert } from '../types'
 
 const api = axios.create({ baseURL: '/api/v1', timeout: 60000 })
 
+// 响应拦截器 - 统一错误处理
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // 提取错误信息
+    let errorMessage = '网络请求失败，请稍后重试'
+    if (error.response) {
+      // 服务器返回错误状态码
+      const status = error.response.status
+      const data = error.response.data
+      
+      switch (status) {
+        case 400:
+          errorMessage = data.detail || '请求参数错误'
+          break
+        case 401:
+          errorMessage = '未授权，请重新登录'
+          break
+        case 404:
+          errorMessage = data.detail || '请求的资源不存在'
+          break
+        case 500:
+          errorMessage = '服务器内部错误'
+          break
+        default:
+          errorMessage = data.detail || `请求失败 (${status})`
+      }
+    } else if (error.request) {
+      // 请求已发送但没有收到响应
+      errorMessage = '服务器无响应，请检查网络连接'
+    }
+    
+    // 抛出错误，让调用方处理
+    throw new Error(errorMessage)
+  }
+)
+
 // 单股分析
 export async function analyzeStock(code: string, market = 'auto', assetType = 'stock', days = 60, test = false) {
   const { data } = await api.get<AnalysisResult>(`/analyze/${code}`, {

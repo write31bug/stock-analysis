@@ -74,6 +74,13 @@ def init_db():
         if db_dir:
             os.makedirs(db_dir, exist_ok=True)
 
+    # 确保所有模型都被导入，这样Base.metadata中才会包含所有表的信息
+    try:
+        from . import models
+        logger.info("成功导入所有模型")
+    except ImportError as e:
+        logger.warning("导入模型时出错: %s", e)
+
     # create_all 只创建不存在的表，不会删除已有数据
     Base.metadata.create_all(bind=engine)
 

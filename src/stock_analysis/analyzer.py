@@ -22,6 +22,10 @@ class StockAnalyzer:
         self.data_fetcher = StockDataFetcher()
         self.indicators = TechnicalIndicators()
         self.levels_finder = SupportResistanceFinder()
+        # 数据缓存，格式: { (code, market, asset_type, days): (timestamp, df) }
+        self._data_cache = {}
+        # 缓存有效期：5分钟
+        self._cache_expiry = 300
 
     def analyze(
         self,
@@ -39,7 +43,27 @@ class StockAnalyzer:
         code, market, asset_type = self.data_fetcher.normalize_stock_code(code, market, asset_type)
         logger.info("分析: %s (市场: %s, 类型: %s)", code, market, asset_type)
 
-        df = self.data_fetcher.fetch_data(code, market, asset_type, days)
+        # 检查缓存
+        cache_key = (code, market, asset_type, days)
+        import time
+        current_time = time.time()
+        
+        if cache_key in self._data_cache:
+            cached_time, cached_df = self._data_cache[cache_key]
+            if current_time - cached_time < self._cache_expiry:
+                logger.info("使用缓存数据: %s", code)
+                df = cached_df
+            else:
+                logger.info("缓存过期，重新获取数据: %s", code)
+                df = self.data_fetcher.fetch_data(code, market, asset_type, days)
+                if df is not None and not df.empty:
+                    self._data_cache[cache_key] = (current_time, df)
+        else:
+            logger.info("缓存未命中，获取新数据: %s", code)
+            df = self.data_fetcher.fetch_data(code, market, asset_type, days)
+            if df is not None and not df.empty:
+                self._data_cache[cache_key] = (current_time, df)
+        
         if df is None or df.empty:
             # 区分网络问题和数据不存在
             error_msg = f"无法获取 {code} 的数据"
@@ -149,7 +173,7 @@ class StockAnalyzer:
                 return self.analyze(code, market, actual_type, days)
 
         results = []
-        # 并发执行，最多8个线程
+        # 并发执行，最多5个线程
         max_workers = min(5, len(codes))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {executor.submit(_analyze_one, item): item for item in codes}

@@ -35,14 +35,14 @@ def client():
 def analyze_600519(client):
     """共享的 600519 分析响应（整个测试只调一次 API）"""
     if "600519" not in _analyze_cache:
-        resp = client.get("/api/analyze/600519", params={"test": "true"})
+        resp = client.get("/api/v1/analyze/600519", params={"test": "true"})
         assert resp.status_code == 200
         _analyze_cache["600519"] = resp.json()
     return _analyze_cache["600519"]
 
 
 class TestAnalyzeStock:
-    """GET /api/analyze/{code} — 单股技术分析"""
+    """GET /api/v1/analyze/{code} — 单股技术分析"""
 
     def test_analyze_with_test_mode(self, analyze_600519):
         data = analyze_600519
@@ -116,23 +116,23 @@ class TestAnalyzeStock:
         assert isinstance(analyze_600519["key_levels"], dict)
 
     def test_days_param(self, client):
-        resp = client.get("/api/analyze/600519", params={"test": "true", "days": "30"})
+        resp = client.get("/api/v1/analyze/600519", params={"test": "true", "days": "30"})
         assert len(resp.json()["ohlcv"]) == 30
 
     def test_different_codes(self, client):
-        r1 = client.get("/api/analyze/600519", params={"test": "true"})
-        r2 = client.get("/api/analyze/000001", params={"test": "true"})
+        r1 = client.get("/api/v1/analyze/600519", params={"test": "true"})
+        r2 = client.get("/api/v1/analyze/000001", params={"test": "true"})
         assert r1.json()["stock_info"]["code"] == "600519"
         assert r2.json()["stock_info"]["code"] == "000001"
         assert r1.json()["stock_info"]["current_price"] != r2.json()["stock_info"]["current_price"]
 
 
 class TestBatchAnalyze:
-    """POST /api/batch + GET /api/batch/{task_id} — 批量分析（全部用 test=true 避免）"""
+    """POST /api/v1/batch + GET /api/v1/batch/{task_id} — 批量分析（全部用 test=true 避免）"""
 
     def test_submit_batch(self, client):
         """提交批量分析任务应返回 task_id"""
-        resp = client.post("/api/batch", json={
+        resp = client.post("/api/v1/batch", json={
             "codes": ["600519"], "days": 60, "test": True,
         })
         assert resp.status_code == 200
@@ -142,24 +142,24 @@ class TestBatchAnalyze:
         assert data["total"] == 1
         # 等后台完成，避免影响后续测试
         for _ in range(10):
-            r = client.get(f"/api/batch/{data['task_id']}")
+            r = client.get(f"/api/v1/batch/{data['task_id']}")
             if r.json()["status"] == "completed":
                 break
             time.sleep(0.1)
 
     def test_get_batch_status_404(self, client):
-        resp = client.get("/api/batch/notexist")
+        resp = client.get("/api/v1/batch/notexist")
         assert resp.status_code == 404
 
     def test_batch_completes(self, client):
         """提交 test=true 批量任务并等待完成"""
-        resp = client.post("/api/batch", json={
+        resp = client.post("/api/v1/batch", json={
             "codes": ["600519"], "days": 30, "test": True,
         })
         task_id = resp.json()["task_id"]
 
         for _ in range(20):
-            r = client.get(f"/api/batch/{task_id}")
+            r = client.get(f"/api/v1/batch/{task_id}")
             data = r.json()
             if data["status"] == "completed":
                 break

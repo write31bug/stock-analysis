@@ -196,6 +196,21 @@ async def analyze_stock(
 @router.post("/batch", response_model=BatchSubmitResponse)
 async def submit_batch(req: BatchSubmitRequest):
     """提交批量分析任务"""
+    # 验证代码数组
+    if not req.codes:
+        raise HTTPException(status_code=400, detail="代码数组不能为空")
+    
+    # 验证代码数量限制
+    if len(req.codes) > 100:
+        raise HTTPException(status_code=400, detail="代码数量不能超过100个")
+    
+    # 验证每个代码的格式
+    for code in req.codes:
+        if not code or not code.strip():
+            raise HTTPException(status_code=400, detail="代码不能为空")
+        if len(code) > 20:
+            raise HTTPException(status_code=400, detail=f"代码 {code} 长度不能超过20个字符")
+    
     task_id = str(uuid.uuid4())[:8]
     with _batch_lock:
         _cleanup_old_batch_tasks()

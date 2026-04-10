@@ -34,11 +34,11 @@ class AnalyzeResponse(BaseModel):
 
 
 class BatchSubmitRequest(BaseModel):
-    codes: List[str] = Field(..., max_length=100)
-    market: str = "auto"
-    asset_type: str = "stock"
-    days: int = 60
-    test: bool = False
+    codes: List[str] = Field(..., description="股票代码列表", min_length=1, max_length=100)
+    market: str = Field("auto", description="市场类型", pattern="^(auto|ashare|hkstock|usstock)$")
+    asset_type: str = Field("stock", description="资产类型", pattern="^(stock|fund)$")
+    days: int = Field(60, description="历史数据天数", ge=10, le=500)
+    test: bool = Field(False, description="是否使用测试数据")
 
 
 class BatchSubmitResponse(BaseModel):
@@ -59,9 +59,9 @@ class BatchStatusResponse(BaseModel):
 
 
 class WatchlistItem(BaseModel):
-    code: str
-    name: str = ""
-    group: str = "默认"
+    code: str = Field(..., description="股票代码", min_length=1, max_length=20, pattern="^[A-Za-z0-9.]+$")
+    name: str = Field("", description="股票名称", max_length=100)
+    group: str = Field("默认", description="分组", max_length=50)
 
 
 class WatchlistResponse(BaseModel):
@@ -126,10 +126,10 @@ class ScoreTrendPoint(BaseModel):
 
 
 class PriceAlertCreate(BaseModel):
-    code: str
-    name: str = ""
-    condition_type: Literal["above", "below", "pct_change_above", "pct_change_below"]
-    target_value: float
+    code: str = Field(..., description="股票代码", min_length=1, max_length=20, pattern="^[A-Za-z0-9.]+$")
+    name: str = Field("", description="股票名称", max_length=100)
+    condition_type: Literal["above", "below", "pct_change_above", "pct_change_below"] = Field(..., description="预警条件类型")
+    target_value: float = Field(..., description="目标值")
 
 
 class PriceAlertResponse(BaseModel):
